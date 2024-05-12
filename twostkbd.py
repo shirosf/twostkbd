@@ -103,7 +103,7 @@ class KbdDevice():
     def __init__(self):
         self.config=KbdConfig()
         if self.config.readconf()!=0:
-            print("can't read 'config.org'")
+            logger.error("can't read 'config.org'")
             return
         btgpios={"SW0":23, "SW1":25, "SW2":7, "SW3":21, "SW4":16, "SW5":26,
                  "SF0":24, "SF1":8, "SF2":12, "SF3":20,
@@ -122,13 +122,92 @@ class KbdDevice():
         self.secondkey=None
         self.modkeys=[False, False, False, False]
         self.leds["LED2"].on()
+        self.modifiers={'RightGUI':(1<<7), 'RightAlt':(1<<6), 'RightShift':(1<<5),
+                        'RightCtl':(1<<4), 'LeftGui':(1<<3), 'LeftAlt':(1<<2),
+                        'LeftShift':(1<<1), 'LeftCtr':(1<<0)}
+        self.devicefd=open("/dev/hidg0", "w")
         print("start")
 
     def close(self):
+        self.devicefd.close()
         for bt in self.buttons.keys():
             bt.close()
         for led in self.leds.values():
             led.close()
+
+    def scancode(self, key: str) -> tuple[int, int]:
+        scodes={
+            '0':(0x27,0,0),
+            'RET':(0x28,0,0),
+            'ESC':(0x29,0,0),
+            'BS':(0x2a,0,0),
+            'TAB':(0x2b,0,0),
+            'SP':(0x2c,0,0),
+            '-':(0x2d,0,0),
+            '=':(0x2e,0,0),
+            '[':(0x2f,0,0),
+            ']':(0x30,0,0),
+            '\\':(0x31,0,0),
+            ';':(0x33,0,0),
+            "'":(0x34,0,0),
+            '`':(0x35,0,0),
+            ',':(0x36,0,0),
+            '.':(0x37,0,0),
+            '/':(0x38,0,0),
+            'F1':(0x3a,0,0),
+            'F2':(0x3b,0,0),
+            'F3':(0x3c,0,0),
+            'HOME':(0x4a,0,self.modifiers['LeftCtr']),
+            'PUP':(0x4b,0,self.modifiers['LeftAlt']),
+            'DEL':(0x4c,0,self.modifiers['LeftCtr']),
+            'CSDEL':(0x4c,self.modifiers['LeftShift']|self.modifiers['LeftCtr'],0),
+            'END':(0x4d,0,self.modifiers['LeftCtr']),
+            'PDOWN':(0x4e,0,self.modifiers['LeftCtr']),
+            'RIGHT':(0x4f,0,self.modifiers['LeftCtr']),
+            'CRIGHT':(0x4f,self.modifiers['LeftCtr'],self.modifiers['LeftAlt']),
+            'LEFT':(0x50,0,self.modifiers['LeftCtr']),
+            'CLEFT':(0x50,self.modifiers['LeftCtr'],self.modifiers['LeftAlt']),
+            'DOWN':(0x51,0,self.modifiers['LeftCtr']),
+            'UP':(0x52,0,self.modifiers['LeftCtr']),
+            '!':(0x1e,self.modifiers['LeftShift'],0),
+            '@':(0x1f,self.modifiers['LeftShift'],0),
+            '#':(0x20,self.modifiers['LeftShift'],0),
+            '$':(0x21,self.modifiers['LeftShift'],0),
+            '%':(0x22,self.modifiers['LeftShift'],0),
+            '^':(0x23,self.modifiers['LeftShift'],0),
+            '*':(0x25,self.modifiers['LeftShift'],0),
+            '&':(0x24,self.modifiers['LeftShift'],0),
+            '(':(0x26,self.modifiers['LeftShift'],0),
+            ')':(0x27,self.modifiers['LeftShift'],0),
+            '_':(0x2d,self.modifiers['LeftShift'],0),
+            '+':(0x2e,self.modifiers['LeftShift'],0),
+            '{':(0x2f,self.modifiers['LeftShift'],0),
+            '}':(0x30,self.modifiers['LeftShift'],0),
+            'VBAR':(0x32,self.modifiers['LeftShift'],0),
+            ':':(0x33,self.modifiers['LeftShift'],0),
+            '"':(0x34,self.modifiers['LeftShift'],0),
+            '~':(0x35,self.modifiers['LeftShift'],0),
+            '<':(0x36,self.modifiers['LeftShift'],0),
+            '>':(0x37,self.modifiers['LeftShift'],0),
+            '?':(0x38,self.modifiers['LeftShift'],0),
+        }
+
+        mbits=0
+        if self.modkeys[0]:
+            mbits|=self.modifiers['LeftShift']
+        if self.modkeys[1]:
+            mbits|=self.modifiers['LeftAlt']
+        if self.modkeys[2]:
+            mbits|=self.modifiers['LeftCtr']
+
+        if len(key)==1:
+            if key>='a' and key<='z':
+                return (ord(key)-ord('a')+0x04, mbits);
+            if key>='1' and key<='9':
+                return (ord(key)-ord('1')+0x1e, mbits);
+        mbits|=scodes[key][1]
+        mbits&=~scodes[key][2]
+        return (scodes[key][0], mbits)
 
     def on_pressed(self, bt) -> None:
         if time.time_ns()-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
@@ -168,38 +247,57 @@ class KbdDevice():
             self.modkeys[ord(kname[2])-ord('0')]=False
 
     def hidevent_pressed(self, kn, fkey):
+        scode=bytearray(b"\0\0\0\0\0\0\0\0")
         if fkey:
-            fktable=self.config.skeytable[int(kn)]
-            print("press %s,%d,%d,%d,%d" % (fktable["func"],
-                                            self.modkeys[0],self.modkeys[1],
-                                            self.modkeys[2],self.modkeys[3]))
+            fktable=self.config.fkeytable[int(kn)]
+            inkey=self.scancode(fktable["func"])
+            logger.debug("press %s,%d,%d,%d,%d" % (fktable["func"],
+                                                   self.modkeys[0],self.modkeys[1],
+                                                   self.modkeys[2],self.modkeys[3]))
         else:
             for i in range(36):
                 sktable=self.config.skeytable[i]
                 if sktable["1st"]!=self.buttons[self.firstkey]["name"][2] or \
                    sktable["2nd"]!=kn:
                     continue
-                print("press %s,%d,%d,%d,%d" % (sktable["key"],
-                                                self.modkeys[0],self.modkeys[1],
-                                                self.modkeys[2],self.modkeys[3]))
+                if self.modkeys[3] and sktable["mkeys"][3]:
+                    inkey=self.scancode(sktable["mkeys"][3])
+                elif self.modkeys[0] and sktable["mkeys"][0]:
+                    inkey=self.scancode(sktable["mkeys"][0])
+                else:
+                    inkey=self.scancode(sktable["key"])
+                logger.debug("press %s,%d,%d,%d,%d" % (sktable["key"],
+                                                       self.modkeys[0],self.modkeys[1],
+                                                       self.modkeys[2],self.modkeys[3]))
+                break
+            else:
                 return
+        scode[0]=inkey[1]
+        scode[2]=inkey[0]
+        self.devicefd.write(scode.decode("utf-8"))
+        self.devicefd.flush()
 
     def hidevent_released(self, kn, fkey):
+        scode=bytearray(b"\0\0\0\0\0\0\0\0")
         if fkey:
-            fktable=self.config.skeytable[int(kn)]
-            print("release %s,%d,%d,%d,%d" % (fktable["func"],
-                                              self.modkeys[0],self.modkeys[1],
-                                              self.modkeys[2],self.modkeys[3]))
+            fktable=self.config.fkeytable[int(kn)]
+            logger.debug("release %s,%d,%d,%d,%d" % (fktable["func"],
+                                                     self.modkeys[0],self.modkeys[1],
+                                                     self.modkeys[2],self.modkeys[3]))
         else:
             for i in range(36):
                 sktable=self.config.skeytable[i]
                 if sktable["1st"]!=self.buttons[self.firstkey]["name"][2] or \
                    sktable["2nd"]!=kn:
                     continue
-                print("release %s,%d,%d,%d,%d" % (sktable["key"],
-                                                  self.modkeys[0],self.modkeys[1],
-                                                  self.modkeys[2],self.modkeys[3]))
+                logger.debug("release %s,%d,%d,%d,%d" % (sktable["key"],
+                                                         self.modkeys[0],self.modkeys[1],
+                                                         self.modkeys[2],self.modkeys[3]))
+                break;
+            else:
                 return
+        self.devicefd.write(scode.decode("utf-8"))
+        self.devicefd.flush()
 
 if __name__ == '__main__':
     kbd = KbdDevice()
