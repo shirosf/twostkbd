@@ -75,4 +75,5 @@ hid_descriptor > functions/hid.usb0/report_desc
 ln -s functions/hid.usb0 configs/c.1/
 
 ls /sys/class/udc > UDC
+chmod 666 /dev/hidg0
 popd

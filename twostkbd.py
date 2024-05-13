@@ -25,6 +25,18 @@ logger=logging.getLogger('twostkbd')
 logger.setLevel(logging.DEBUG)
 
 class KbdConfig():
+    def get_keygpio_table(self, items):
+        if len(items)<4: return 0
+        try:
+            item1=items[1].strip()
+            gpn=int(items[2])
+            if gpn<0 or gpn>27: raise ValueError
+            self.btgpios[item1]=gpn
+        except ValueError:
+            logger.error("gpio msut be a number in 0 to 27")
+            return -1
+        return 0
+
     def get_skey_table(self, items):
         if len(items)<10: return 0
         try:
@@ -76,25 +88,29 @@ class KbdConfig():
         state=0
         self.skeytable=[None]*36
         self.fkeytable=[None]*4
+        self.btgpios={}
         while True:
             keydef={}
             line=inf.readline()
             if line=='': break
             if state==0:
-                if line.find("6-key table")>0:
+                if line.find("key-gpio table")>0:
                     state=1
-                if line.find("fkey table")>0:
+                if line.find("6-key table")>0:
                     state=2
+                if line.find("fkey table")>0:
+                    state=3
                 continue
             if line[0]!='|':
                 state=0
                 continue
             items=line.split('|')
             if state==1:
-                if self.get_skey_table(items)!=0: return -1
+                if self.get_keygpio_table(items)!=0: return -1
             if state==2:
+                if self.get_skey_table(items)!=0: return -1
+            if state==3:
                 if self.get_fkey_table(items)!=0: return -1
-
         inf.close()
         return 0
 
@@ -105,14 +121,11 @@ class KbdDevice():
         if self.config.readconf()!=0:
             logger.error("can't read 'config.org'")
             return
-        btgpios={"SW0":23, "SW1":25, "SW2":7, "SW3":21, "SW4":16, "SW5":26,
-                 "SF0":24, "SF1":8, "SF2":12, "SF3":20,
-                 "SM0":15, "SM1":18, "SM2":14, "SM3":4}
         self.buttons={}
         ledgpios={"LED0":17, "LED1":27, "LED2":22}
         self.leds={"LED0":None, "LED1":None, "LED2":None}
-        for l in btgpios.keys():
-            bt=Button(btgpios[l])
+        for l in self.config.btgpios.keys():
+            bt=Button(self.config.btgpios[l])
             self.buttons[bt]={"name":l, "ts":time.time_ns(), "state":0}
             bt.when_pressed=self.on_pressed
             bt.when_released=self.on_released
@@ -121,7 +134,7 @@ class KbdDevice():
         self.firstkey=None
         self.secondkey=None
         self.modkeys=[False, False, False, False]
-        self.leds["LED2"].on()
+        self.leds["LED0"].on()
         self.modifiers={'RightGUI':(1<<7), 'RightAlt':(1<<6), 'RightShift':(1<<5),
                         'RightCtl':(1<<4), 'LeftGui':(1<<3), 'LeftAlt':(1<<2),
                         'LeftShift':(1<<1), 'LeftCtr':(1<<0)}
