@@ -1,5 +1,8 @@
 #!/bin/bash
-
+if [ -e /dev/hidg0 ]; then
+    echo "already created"
+    exit 0
+fi
 hid_descriptor()
 {
     local wdata=""
@@ -38,9 +41,16 @@ hid_descriptor()
     echo -n -e ${wdata}
 }
 
+if ! grep "dtoverlay=dwc2" /boot/firmware/config.txt > /dev/null; then
+    echo "dtoverlay=dwc2" >> /boot/firmware/config.txt
+    echo "appended \"dtoverlay=dwc2\" to \"/boot/firmware/config.txt\""
+    echo "need to reboot"
+    exit 1
+fi
+
 if [ ! -d /sys/kernel/config/usb_gadget ]; then
-    sudo modprobe dwc2
-    sudo modprobe libcomposite
+    modprobe dwc2
+    modprobe libcomposite
 fi
 if [ ! -d /sys/kernel/config/usb_gadget ]; then
     echo "no \"/sys/kernel/config/usb_gadget\""

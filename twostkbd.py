@@ -139,7 +139,11 @@ class KbdDevice():
                         'RightCtl':(1<<4), 'LeftGui':(1<<3), 'LeftAlt':(1<<2),
                         'LeftShift':(1<<1), 'LeftCtr':(1<<0)}
         self.devicefd=open("/dev/hidg0", "w")
-        print("start")
+        for sk in self.config.skeytable:
+            skm0=sk["mkeys"][0]
+            if not skm0: skm0=sk["key"].upper()
+            print("%s-%s: %s, %s\t%s" % ( sk["1st"], sk["2nd"], sk["key"],
+                                            skm0,sk["mkeys"][3]))
 
     def close(self):
         self.devicefd.close()
@@ -234,11 +238,12 @@ class KbdDevice():
                 self.secondkey=bt
                 self.hidevent_pressed(kname[2], fkey=False)
             else:
-                logger.error("ignore 3rd key press:%s" % kname)
+                logger.debug("ignore 3rd key press:%s" % kname)
         elif kname[1]=='F':
-            self.firstkey=None
             self.secondkey=None
-            self.hidevent_pressed(kname[2], fkey=True)
+            if self.firstkey==None:
+                self.hidevent_pressed(kname[2], fkey=True)
+            self.firstkey=None
         else:
             # kname="SM0" to "SM3"
             self.modkeys[ord(kname[2])-ord('0')]=True
