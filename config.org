@@ -75,5 +75,5 @@
 | alt | ctrl | shift | ext   | k0   | k1  | k2    | k3  | k4 | k5     | f0    | f1    | f2    | f3  |
 |-----+------+-------+-------+------+-----+-------+-----+----+--------+-------+-------+-------+-----|
 |   0 | COPY | HOME  | CLEFT | LEFT | UP  | RIGHT | END | SP | CRIGHT | PASTE | DOWN  | RET   | BS  |
-|   1 |      |       |       | PTOP | PUP | PBOT  |     |    |        |       | PDOWN | CSDEL | DEL |
+|   1 | CTAB | TAB   |       | PTOP | PUP | PBOT  |     |    |        |       | PDOWN | CSDEL | DEL |
 |-----+------+-------+-------+------+-----+-------+-----+----+--------+-------+-------+-------+-----|

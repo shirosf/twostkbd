@@ -84,11 +84,21 @@ class KbdConfig():
         self.fkeytable[index]={"func":func, "mfuncs":mfuncs}
         return 0
 
+    def get_fmode_table(self, items):
+        if len(items)<16: return 0
+        lables=("alt","ctrl","shift","ext","k0","k1","k2","k3","k4","k5","f0","f1","f2","f3")
+        item1=items[1].strip()
+        if (item1!="0") or (item1!="1"):return 0
+        item1=int(item1)
+        for i in range(13):
+            self.fmodetable[labels[i+1]][item1]=items[i+2].strip()
+
     def readconf(self, conffile: str="config.org") -> int:
         inf=open(conffile, "r")
         state=0
         self.skeytable=[None]*36
         self.fkeytable=[None]*4
+        self.fmodetable=[{},{}]
         self.btgpios={}
         while True:
             keydef={}
@@ -227,6 +237,17 @@ class KbdDevice():
         mbits&=~scodes[key][2]
         return (scodes[key][0], mbits)
 
+    def check_fmode_switch(self, kname: str) -> bool:
+        if not self.modkeys["shift"] or not self.modkeys["alt"]: return False
+        if (kname=="k0" and self.buttons[self.firstkey]["kname"]=="k1") or \
+           (kname=="k1" and self.buttons[self.firstkey]["kname"]=="k0"):
+            self.leds["LED2"].toggle()
+            self.leds["LED1"].off()
+            self.secondkey=None
+            self.firstkey=None
+            return True
+        return False
+
     def on_pressed(self, bt) -> None:
         if time.time_ns()-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
         self.buttons[bt]["ts"]=time.time_ns()
@@ -235,16 +256,20 @@ class KbdDevice():
         if kname[0]=='k':
             if self.firstkey==None:
                 self.firstkey=bt
+                self.leds["LED1"].on()
             elif self.secondkey==None:
+                if self.check_fmode_switch(kname): return
                 self.secondkey=bt
                 self.hidevent_pressed(kname[1], fkey=False)
             else:
                 logger.debug("ignore 3rd key press:%s" % kname)
+
         elif kname[0]=='f':
             self.secondkey=None
             if self.firstkey==None:
                 self.hidevent_pressed(kname[1], fkey=True)
             self.firstkey=None
+            self.leds["LED1"].off()
         else:
             # modifier key
             self.modkeys[kname]=True
@@ -258,6 +283,7 @@ class KbdDevice():
             if self.secondkey==bt:
                 self.hidevent_released(kname[1], fkey=False)
                 self.firstkey=None
+                self.leds["LED1"].off()
                 self.secondkey=None
         elif kname[0]=='f':
             self.hidevent_released(kname[1], fkey=True)
