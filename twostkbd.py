@@ -26,12 +26,12 @@ logger.setLevel(logging.DEBUG)
 
 class KbdConfig():
     def get_keygpio_table(self, items):
-        if len(items)<4: return 0
+        if len(items)<5: return 0
         try:
-            item1=items[1].strip()
+            kname=items[3].strip()
             gpn=int(items[2])
             if gpn<0 or gpn>27: raise ValueError
-            self.btgpios[item1]=gpn
+            self.btgpios[kname]=gpn
         except ValueError:
             logger.error("gpio msut be a number in 0 to 27")
             return -1
@@ -52,9 +52,10 @@ class KbdConfig():
             key=items[2].strip()
             firstkey=items[3].strip()
             secondkey=items[4].strip()
-            mkeys=[""]*4
+            mnames=("shift", "alt", "ctrl", "ext")
+            mkeys={}
             for i in range(4):
-                mkeys[i]=items[5+i].strip()
+                mkeys[mnames[i]]=items[5+i].strip()
         except:
             logger.error("invalid value in 6-key table")
             return -1
@@ -126,24 +127,24 @@ class KbdDevice():
         self.leds={"LED0":None, "LED1":None, "LED2":None}
         for l in self.config.btgpios.keys():
             bt=Button(self.config.btgpios[l])
-            self.buttons[bt]={"name":l, "ts":time.time_ns(), "state":0}
+            self.buttons[bt]={"kname":l, "ts":time.time_ns(), "state":0}
             bt.when_pressed=self.on_pressed
             bt.when_released=self.on_released
         for l in self.leds.keys():
             self.leds[l]=LED(ledgpios[l])
         self.firstkey=None
         self.secondkey=None
-        self.modkeys=[False, False, False, False]
+        self.modkeys={"shift":False, "alt":False, "ctrl":False, "ext":False}
         self.leds["LED0"].on()
         self.modifiers={'RightGUI':(1<<7), 'RightAlt':(1<<6), 'RightShift':(1<<5),
                         'RightCtl':(1<<4), 'LeftGui':(1<<3), 'LeftAlt':(1<<2),
                         'LeftShift':(1<<1), 'LeftCtr':(1<<0)}
         self.devicefd=open("/dev/hidg0", "w")
         for sk in self.config.skeytable:
-            skm0=sk["mkeys"][0]
+            skm0=sk["mkeys"]["shift"]
             if not skm0: skm0=sk["key"].upper()
             print("%s-%s: %s, %s\t%s" % ( sk["1st"], sk["2nd"], sk["key"],
-                                            skm0,sk["mkeys"][3]))
+                                          skm0, sk["mkeys"]["ext"]))
 
     def close(self):
         self.devicefd.close()
@@ -210,11 +211,11 @@ class KbdDevice():
         }
 
         mbits=0
-        if self.modkeys[0]:
+        if self.modkeys["shift"]:
             mbits|=self.modifiers['LeftShift']
-        if self.modkeys[1]:
+        if self.modkeys["alt"]:
             mbits|=self.modifiers['LeftAlt']
-        if self.modkeys[2]:
+        if self.modkeys["ctrl"]:
             mbits|=self.modifiers['LeftCtr']
 
         if len(key)==1:
@@ -230,39 +231,39 @@ class KbdDevice():
         if time.time_ns()-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
         self.buttons[bt]["ts"]=time.time_ns()
         self.buttons[bt]["state"]=1
-        kname=self.buttons[bt]["name"]
-        if kname[1]=='W':
+        kname=self.buttons[bt]["kname"]
+        if kname[0]=='k':
             if self.firstkey==None:
                 self.firstkey=bt
             elif self.secondkey==None:
                 self.secondkey=bt
-                self.hidevent_pressed(kname[2], fkey=False)
+                self.hidevent_pressed(kname[1], fkey=False)
             else:
                 logger.debug("ignore 3rd key press:%s" % kname)
-        elif kname[1]=='F':
+        elif kname[0]=='f':
             self.secondkey=None
             if self.firstkey==None:
-                self.hidevent_pressed(kname[2], fkey=True)
+                self.hidevent_pressed(kname[1], fkey=True)
             self.firstkey=None
         else:
-            # kname="SM0" to "SM3"
-            self.modkeys[ord(kname[2])-ord('0')]=True
+            # modifier key
+            self.modkeys[kname]=True
 
     def on_released(self, bt) -> None:
         if time.time_ns()-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
         self.buttons[bt]["ts"]=time.time_ns()
         self.buttons[bt]["state"]=0
-        kname=self.buttons[bt]["name"]
-        if kname[1]=='W':
+        kname=self.buttons[bt]["kname"]
+        if kname[0]=='k':
             if self.secondkey==bt:
-                self.hidevent_released(kname[2], fkey=False)
+                self.hidevent_released(kname[1], fkey=False)
                 self.firstkey=None
                 self.secondkey=None
-        elif kname[1]=='F':
-            self.hidevent_released(kname[2], fkey=True)
+        elif kname[0]=='f':
+            self.hidevent_released(kname[1], fkey=True)
         else:
             # modifier key is released
-            self.modkeys[ord(kname[2])-ord('0')]=False
+            self.modkeys[kname]=False
 
     def hidevent_pressed(self, kn, fkey):
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
@@ -270,23 +271,23 @@ class KbdDevice():
             fktable=self.config.fkeytable[int(kn)]
             inkey=self.scancode(fktable["func"])
             logger.debug("press %s,%d,%d,%d,%d" % (fktable["func"],
-                                                   self.modkeys[0],self.modkeys[1],
-                                                   self.modkeys[2],self.modkeys[3]))
+                                                   self.modkeys["shift"],self.modkeys["alt"],
+                                                   self.modkeys["ctrl"],self.modkeys["ext"]))
         else:
             for i in range(36):
                 sktable=self.config.skeytable[i]
-                if sktable["1st"]!=self.buttons[self.firstkey]["name"][2] or \
+                if sktable["1st"]!=self.buttons[self.firstkey]["kname"][1] or \
                    sktable["2nd"]!=kn:
                     continue
-                if self.modkeys[3] and sktable["mkeys"][3]:
-                    inkey=self.scancode(sktable["mkeys"][3])
-                elif self.modkeys[0] and sktable["mkeys"][0]:
-                    inkey=self.scancode(sktable["mkeys"][0])
+                if self.modkeys["ext"] and sktable["mkeys"]["ext"]:
+                    inkey=self.scancode(sktable["mkeys"]["ext"])
+                elif self.modkeys["shift"] and sktable["mkeys"]["shift"]:
+                    inkey=self.scancode(sktable["mkeys"]["shift"])
                 else:
                     inkey=self.scancode(sktable["key"])
                 logger.debug("press %s,%d,%d,%d,%d" % (sktable["key"],
-                                                       self.modkeys[0],self.modkeys[1],
-                                                       self.modkeys[2],self.modkeys[3]))
+                                                       self.modkeys["shift"],self.modkeys["alt"],
+                                                       self.modkeys["ctrl"],self.modkeys["ext"]))
                 break
             else:
                 return
@@ -300,17 +301,17 @@ class KbdDevice():
         if fkey:
             fktable=self.config.fkeytable[int(kn)]
             logger.debug("release %s,%d,%d,%d,%d" % (fktable["func"],
-                                                     self.modkeys[0],self.modkeys[1],
-                                                     self.modkeys[2],self.modkeys[3]))
+                                                     self.modkeys["shift"],self.modkeys["alt"],
+                                                     self.modkeys["ctrl"],self.modkeys["ext"]))
         else:
             for i in range(36):
                 sktable=self.config.skeytable[i]
-                if sktable["1st"]!=self.buttons[self.firstkey]["name"][2] or \
+                if sktable["1st"]!=self.buttons[self.firstkey]["kname"][1] or \
                    sktable["2nd"]!=kn:
                     continue
                 logger.debug("release %s,%d,%d,%d,%d" % (sktable["key"],
-                                                         self.modkeys[0],self.modkeys[1],
-                                                         self.modkeys[2],self.modkeys[3]))
+                                                         self.modkeys["shift"],self.modkeys["alt"],
+                                                         self.modkeys["ctrl"],self.modkeys["ext"]))
                 break;
             else:
                 return
