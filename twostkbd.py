@@ -25,6 +25,7 @@ logger=logging.getLogger('twostkbd')
 logger.setLevel(logging.DEBUG)
 
 class KbdConfig():
+    flabels=("alt","ctrl","shift","ext","k0","k1","k2","k3","k4","k5","f0","f1","f2","f3")
     def get_keygpio_table(self, items):
         if len(items)<5: return 0
         try:
@@ -86,12 +87,12 @@ class KbdConfig():
 
     def get_fmode_table(self, items):
         if len(items)<16: return 0
-        lables=("alt","ctrl","shift","ext","k0","k1","k2","k3","k4","k5","f0","f1","f2","f3")
         item1=items[1].strip()
-        if (item1!="0") or (item1!="1"):return 0
+        if (item1!="0") and (item1!="1"):return 0
         item1=int(item1)
         for i in range(13):
-            self.fmodetable[labels[i+1]][item1]=items[i+2].strip()
+            self.fmodetable[item1][self.flabels[i+1]]=items[i+2].strip()
+        return 0
 
     def readconf(self, conffile: str="config.org") -> int:
         inf=open(conffile, "r")
@@ -111,6 +112,8 @@ class KbdConfig():
                     state=2
                 if line.find("fkey table")>0:
                     state=3
+                if line.find("fmode table")>0:
+                    state=4
                 continue
             if line[0]!='|':
                 state=0
@@ -122,6 +125,8 @@ class KbdConfig():
                 if self.get_skey_table(items)!=0: return -1
             if state==3:
                 if self.get_fkey_table(items)!=0: return -1
+            if state==4:
+                if self.get_fmode_table(items)!=0: return -1
         inf.close()
         return 0
 
@@ -150,11 +155,30 @@ class KbdDevice():
                         'RightCtl':(1<<4), 'LeftGui':(1<<3), 'LeftAlt':(1<<2),
                         'LeftShift':(1<<1), 'LeftCtr':(1<<0)}
         self.devicefd=open("/dev/hidg0", "w")
+        self.print_skeytable()
+
+    def print_skeytable(self):
+        fhelp={"0":"r ","1":"m ", "2":"i ", "3":"t ", "4":"ir", "5":"tr"}
         for sk in self.config.skeytable:
             skm0=sk["mkeys"]["shift"]
-            if not skm0: skm0=sk["key"].upper()
-            print("%s-%s: %s, %s\t%s" % ( sk["1st"], sk["2nd"], sk["key"],
-                                          skm0, sk["mkeys"]["ext"]))
+            if not skm0:
+                skm0=sk["key"].upper()
+            elif skm0=="VBAR":
+                skm0="|"
+            print("%s(%s)-%s(%s): %s, %s, %s" % ( sk["1st"], fhelp[sk["1st"]],
+                                                  sk["2nd"], fhelp[sk["2nd"]],
+                                                  sk["key"], skm0, sk["mkeys"]["ext"]))
+
+    def print_fmodetable(self):
+        for fl in self.config.flabels[1:]:
+            print("%06s" % fl, end='')
+        print()
+        for fl in self.config.flabels[1:]:
+            print("%06s" % self.config.fmodetable[0][fl], end='')
+        print()
+        for fl in self.config.flabels[1:]:
+            print("%06s" % self.config.fmodetable[1][fl], end='')
+        print()
 
     def close(self):
         self.devicefd.close()
@@ -185,6 +209,15 @@ class KbdDevice():
             'F1':(0x3a,0,0),
             'F2':(0x3b,0,0),
             'F3':(0x3c,0,0),
+            'F4':(0x3d,0,0),
+            'F5':(0x3e,0,0),
+            'F6':(0x3f,0,0),
+            'F7':(0x40,0,0),
+            'F8':(0x41,0,0),
+            'F9':(0x42,0,0),
+            'F10':(0x43,0,0),
+            'F11':(0x44,0,0),
+            'F12':(0x45,0,0),
             'HOME':(0x4a,0,self.modifiers['LeftCtr']),
             'PUP':(0x4b,0,self.modifiers['LeftAlt']),
             'DEL':(0x4c,0,self.modifiers['LeftCtr']),
@@ -197,6 +230,11 @@ class KbdDevice():
             'CLEFT':(0x50,self.modifiers['LeftCtr'],self.modifiers['LeftAlt']),
             'DOWN':(0x51,0,self.modifiers['LeftCtr']),
             'UP':(0x52,0,self.modifiers['LeftCtr']),
+            'COPY':(ord('c')-ord('a')+4,self.modifiers['LeftCtr'],0),
+            'PASTE':(ord('v')-ord('a')+4,self.modifiers['LeftCtr'],0),
+            'CHOME':(0x4a,self.modifiers['LeftCtr'],0),
+            'CEND':(0x4d,self.modifiers['LeftCtr'],0),
+            'CTAB':(0x2b,self.modifiers['LeftCtr'],0),
             '!':(0x1e,self.modifiers['LeftShift'],0),
             '@':(0x1f,self.modifiers['LeftShift'],0),
             '#':(0x20,self.modifiers['LeftShift'],0),
@@ -237,28 +275,79 @@ class KbdDevice():
         mbits&=~scodes[key][2]
         return (scodes[key][0], mbits)
 
-    def check_fmode_switch(self, kname: str) -> bool:
-        if not self.modkeys["shift"] or not self.modkeys["alt"]: return False
-        if (kname=="k0" and self.buttons[self.firstkey]["kname"]=="k1") or \
-           (kname=="k1" and self.buttons[self.firstkey]["kname"]=="k0"):
-            self.leds["LED2"].toggle()
-            self.leds["LED1"].off()
-            self.secondkey=None
-            self.firstkey=None
-            return True
-        return False
+    # def check_fmode_switch(self, kname: str) -> bool:
+    #     if not self.modkeys["shift"] or not self.modkeys["alt"]: return False
+    #     if (kname=="k0" and self.buttons[self.firstkey]["kname"]=="k1") or \
+    #        (kname=="k1" and self.buttons[self.firstkey]["kname"]=="k0"):
+    #         if not self.leds["LED2"].is_lit:
+    #             self.leds["LED2"].on()
+    #             self.print_fmodetable()
+    #         else:
+    #             self.leds["LED2"].off()
+    #             self.print_skeytable()
+    #         self.leds["LED1"].off()
+    #         self.secondkey=None
+    #         self.firstkey=None
+    #         for i in self.modkeys.keys(): self.modkeys[i]=False
+    #         return True
+    #     return False
+
+    def check_fmode_switch(self) -> bool:
+        ckeys=("alt", "shift")
+        rcode=False
+        for bt,btv in self.buttons.items():
+            if (btv["kname"] in ckeys) and (btv["state"]==0): return False
+        if self.leds["LED2"].is_lit:
+            # in fmode, when "alt" and "shift" is pressed, don't process any keys
+            rcode=True
+        ckeys=("k0", "k1")
+        for bt,btv in self.buttons.items():
+            if (btv["kname"] in ckeys) and (btv["state"]==0): return rcode
+        if not self.leds["LED2"].is_lit:
+            self.leds["LED2"].on()
+            self.print_fmodetable()
+        else:
+            self.leds["LED2"].off()
+            self.print_skeytable()
+        self.leds["LED1"].off()
+        self.secondkey=None
+        self.firstkey=None
+        for i in self.modkeys.keys(): self.modkeys[i]=False
+        return True
+
 
     def on_pressed(self, bt) -> None:
         if time.time_ns()-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
         self.buttons[bt]["ts"]=time.time_ns()
         self.buttons[bt]["state"]=1
+        if self.check_fmode_switch(): return
         kname=self.buttons[bt]["kname"]
+        if not self.leds["LED2"].is_lit:
+            self.on_pressed_rmode(bt, kname)
+        else:
+            self.on_pressed_fmode(bt, kname)
+
+    def on_pressed_fmode(self, bt, kname) -> None:
+        if kname=="alt":
+            self.modkeys[kname]=True
+            return
+        i=1 if self.modkeys["alt"] else 0
+        fmfunc=self.config.fmodetable[i][kname]
+        inkey=self.scancode(fmfunc)
+        logger.debug("press %s/%d" % (fmfunc,self.modkeys["alt"]))
+        scode=bytearray(b"\0\0\0\0\0\0\0\0")
+        scode[0]=inkey[1]
+        scode[2]=inkey[0]
+        self.devicefd.write(scode.decode("utf-8"))
+        self.devicefd.flush()
+
+    def on_pressed_rmode(self, bt, kname) -> None:
         if kname[0]=='k':
             if self.firstkey==None:
                 self.firstkey=bt
                 self.leds["LED1"].on()
             elif self.secondkey==None:
-                if self.check_fmode_switch(kname): return
+                #if self.check_fmode_switch(kname): return
                 self.secondkey=bt
                 self.hidevent_pressed(kname[1], fkey=False)
             else:
@@ -279,6 +368,20 @@ class KbdDevice():
         self.buttons[bt]["ts"]=time.time_ns()
         self.buttons[bt]["state"]=0
         kname=self.buttons[bt]["kname"]
+        if not self.leds["LED2"].is_lit:
+            self.on_released_rmode(bt, kname)
+        else:
+            self.on_released_fmode(bt, kname)
+
+    def on_released_fmode(self, bt, kname) -> None:
+        if kname=="alt":
+            self.modkeys[kname]=False
+            return
+        scode=bytearray(b"\0\0\0\0\0\0\0\0")
+        self.devicefd.write(scode.decode("utf-8"))
+        self.devicefd.flush()
+
+    def on_released_rmode(self, bt, kname) -> None:
         if kname[0]=='k':
             if self.secondkey==bt:
                 self.hidevent_released(kname[1], fkey=False)
