@@ -20,6 +20,7 @@
 import logging
 from gpiozero import Button, LED
 import time
+import threading
 
 logger=logging.getLogger('twostkbd')
 logger.setLevel(logging.DEBUG)
@@ -132,6 +133,7 @@ class KbdConfig():
 
 class KbdDevice():
     CHATTERING_GUARD_NS=40000000
+    FMODE_SWITCHING_GUARD_NS=500000000
     def __init__(self):
         self.config=KbdConfig()
         if self.config.readconf()!=0:
@@ -140,9 +142,10 @@ class KbdDevice():
         self.buttons={}
         ledgpios={"LED0":17, "LED1":27, "LED2":22}
         self.leds={"LED0":None, "LED1":None, "LED2":None}
+        self.fmode_switching_ts=time.time_ns()
         for l in self.config.btgpios.keys():
             bt=Button(self.config.btgpios[l])
-            self.buttons[bt]={"kname":l, "ts":time.time_ns(), "state":0}
+            self.buttons[bt]={"kname":l, "ts":time.time_ns(), "state":0, "ontimer":None}
             bt.when_pressed=self.on_pressed
             bt.when_released=self.on_released
         for l in self.leds.keys():
@@ -275,34 +278,16 @@ class KbdDevice():
         mbits&=~scodes[key][2]
         return (scodes[key][0], mbits)
 
-    # def check_fmode_switch(self, kname: str) -> bool:
-    #     if not self.modkeys["shift"] or not self.modkeys["alt"]: return False
-    #     if (kname=="k0" and self.buttons[self.firstkey]["kname"]=="k1") or \
-    #        (kname=="k1" and self.buttons[self.firstkey]["kname"]=="k0"):
-    #         if not self.leds["LED2"].is_lit:
-    #             self.leds["LED2"].on()
-    #             self.print_fmodetable()
-    #         else:
-    #             self.leds["LED2"].off()
-    #             self.print_skeytable()
-    #         self.leds["LED1"].off()
-    #         self.secondkey=None
-    #         self.firstkey=None
-    #         for i in self.modkeys.keys(): self.modkeys[i]=False
-    #         return True
-    #     return False
+    def check_fmode_switch(self, tsns: int) -> bool:
+        if tsns-self.fmode_switching_ts<KbdDevice.FMODE_SWITCHING_GUARD_NS: return True
+        ckeys=("shift", "k0", "k1", "k2", "k3")
+        for bt,btv in self.buttons.items():
+            if (btv["kname"] in ckeys) and not bt.is_pressed: return False
+        for bt in self.buttons.keys():
+            if self.buttons[bt]["ontimer"]!=None:
+                self.buttons[bt]["ontimer"].cancel()
+                self.buttons[bt]["ontimer"]=None
 
-    def check_fmode_switch(self) -> bool:
-        ckeys=("alt", "shift")
-        rcode=False
-        for bt,btv in self.buttons.items():
-            if (btv["kname"] in ckeys) and (btv["state"]==0): return False
-        if self.leds["LED2"].is_lit:
-            # in fmode, when "alt" and "shift" is pressed, don't process any keys
-            rcode=True
-        ckeys=("k0", "k1")
-        for bt,btv in self.buttons.items():
-            if (btv["kname"] in ckeys) and (btv["state"]==0): return rcode
         if not self.leds["LED2"].is_lit:
             self.leds["LED2"].on()
             self.print_fmodetable()
@@ -313,19 +298,27 @@ class KbdDevice():
         self.secondkey=None
         self.firstkey=None
         for i in self.modkeys.keys(): self.modkeys[i]=False
+        self.fmode_switching_ts=tsns
         return True
 
-
-    def on_pressed(self, bt) -> None:
-        if time.time_ns()-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
-        self.buttons[bt]["ts"]=time.time_ns()
+    def defered_on_pressed(self, bt) -> None:
+        self.buttons[bt]["ontimer"]=None
         self.buttons[bt]["state"]=1
-        if self.check_fmode_switch(): return
         kname=self.buttons[bt]["kname"]
         if not self.leds["LED2"].is_lit:
             self.on_pressed_rmode(bt, kname)
         else:
             self.on_pressed_fmode(bt, kname)
+
+    def on_pressed(self, bt) -> None:
+        tsns=time.time_ns()
+        if self.check_fmode_switch(tsns): return
+        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
+        if self.buttons[bt]["ontimer"]!=None: return
+        self.buttons[bt]["ts"]=tsns
+        self.buttons[bt]["ontimer"]=threading.Timer(KbdDevice.CHATTERING_GUARD_NS/1E9,
+                                                    self.defered_on_pressed, args=(bt,))
+        self.buttons[bt]["ontimer"].start()
 
     def on_pressed_fmode(self, bt, kname) -> None:
         if kname=="alt":
@@ -333,7 +326,11 @@ class KbdDevice():
             return
         i=1 if self.modkeys["alt"] else 0
         fmfunc=self.config.fmodetable[i][kname]
+        if not fmfunc: return
+        altbk=self.modkeys["alt"]
+        self.modkeys["alt"]=False
         inkey=self.scancode(fmfunc)
+        self.modkeys["alt"]=altbk
         logger.debug("press %s/%d" % (fmfunc,self.modkeys["alt"]))
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
         scode[0]=inkey[1]
@@ -364,8 +361,11 @@ class KbdDevice():
             self.modkeys[kname]=True
 
     def on_released(self, bt) -> None:
-        if time.time_ns()-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
-        self.buttons[bt]["ts"]=time.time_ns()
+        tsns=time.time_ns()
+        if tsns-self.fmode_switching_ts<KbdDevice.FMODE_SWITCHING_GUARD_NS: return
+        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
+        if self.buttons[bt]["state"]!=1: return
+        self.buttons[bt]["ts"]=tsns
         self.buttons[bt]["state"]=0
         kname=self.buttons[bt]["kname"]
         if not self.leds["LED2"].is_lit:
@@ -451,5 +451,5 @@ if __name__ == '__main__':
     kbd = KbdDevice()
     while True:
         s=input()
-        if s[0]=='q': break
+        if len(s)>=1 and s[0]=='q': break
     kbd.close()
