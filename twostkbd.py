@@ -132,7 +132,7 @@ class KbdConfig():
         return 0
 
 class KbdDevice():
-    CHATTERING_GUARD_NS=40000000
+    CHATTERING_GUARD_NS=30000000
     FMODE_SWITCHING_GUARD_NS=500000000
     def __init__(self):
         self.config=KbdConfig()
@@ -314,7 +314,7 @@ class KbdDevice():
         tsns=time.time_ns()
         if self.check_fmode_switch(tsns): return
         if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
-        if self.buttons[bt]["ontimer"]!=None: return
+        #if self.buttons[bt]["ontimer"]!=None: return
         self.buttons[bt]["ts"]=tsns
         self.buttons[bt]["ontimer"]=threading.Timer(KbdDevice.CHATTERING_GUARD_NS/1E9,
                                                     self.defered_on_pressed, args=(bt,))
@@ -450,6 +450,8 @@ class KbdDevice():
 if __name__ == '__main__':
     kbd = KbdDevice()
     while True:
-        s=input()
-        if len(s)>=1 and s[0]=='q': break
+        try:
+            threading.Event().wait()
+        except:
+            break
     kbd.close()
