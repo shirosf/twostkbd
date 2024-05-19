@@ -1,0 +1,13 @@
+[Unit]
+Description=two-stroke signle hand keyboard
+After=syslog.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/bin/twostkbd
+ExecStartPre=/usr/bin/twostkbd/create_device.sh
+ExecStart=/usr/bin/twostkbd/twostkbd.py
+ExecStop=kill -SIGINT $MAINPID
+
+[Install]
+WantedBy=multi-user.target
