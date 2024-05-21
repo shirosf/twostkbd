@@ -303,6 +303,7 @@ class KbdDevice():
 
     def defered_on_pressed(self, bt) -> None:
         self.buttons[bt]["ontimer"]=None
+        if not bt.is_pressed: return
         self.buttons[bt]["state"]=1
         kname=self.buttons[bt]["kname"]
         if not self.leds["LED2"].is_lit:
@@ -313,7 +314,9 @@ class KbdDevice():
     def on_pressed(self, bt) -> None:
         tsns=time.time_ns()
         if self.check_fmode_switch(tsns): return
-        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
+        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS:
+            self.buttons[bt]["ts"]=tsns
+            return
         #if self.buttons[bt]["ontimer"]!=None: return
         self.buttons[bt]["ts"]=tsns
         self.buttons[bt]["ontimer"]=threading.Timer(KbdDevice.CHATTERING_GUARD_NS/1E9,
