@@ -14,7 +14,7 @@ The other 10 are used for numerical character codes.
 ** Hardware
 KiCAD schematic and PCB data are in 'pcb' directory.
 The HW consists of key switches, LEDs and Raspberry Pi Zero.
-The circuits are mostly simple conections between GPIOs and switches.
+The circuits are mostly simple connections between GPIOs and switches.
 #+ATTR_LATEX: :width 200px
 #+ATTR_HTML: :width 200px
 #+CAPTION: 14 keys and Raspberry Pi Zero
@@ -23,6 +23,64 @@ The circuits are mostly simple conections between GPIOs and switches.
 ** Software
 *** Installation
 Copy following 3 files into some directory of Pi Zero.
-twostkbd.py, create_device.sh, config.org
++ twostkbd.py, create_device.sh, config.org
 
 Using included Makefile, "make sshcopy" copies the files by 'scp'.
+It needs 'pizero' defined in ssh config.
+
+*** Run
+You go to the directory of the target Pi Zero where 3 files above are copied
+by ssh or a local terminal.
+
+At the first time after booting up, 'create_device.sh' needs to be run.
+It creates a USB HID device: '/dev/hidg0'.
+
+Once the USB HID device is created, 'twostkbd.py' can run, and it feeds
+keyboard events into the device.
+
+*** systemd service
+To meke the program start automatically at boot time, install "twostkbd.service"
+and enable it as follows:
+when you copy "twostkbd.py, create_device.sh, config.org" to the target Pi Zero,
+you also copy "Makefile, twostkbd.service". Then go to the directory, and run the
+following commands:
+$ sudo make install
+$ sudo make enable_service
+
+When you changed the program or the config file in the working directory,
+$ sudo make install
+then restart the service again as next:
+$ sudo systemctl restart twostkbd.service
+
+*** Configuration
+'twostkbd.py' reads 'config.org' file in the working directory.
+'config.org' has the following 4 sections:
++ key-gpio table
+  Each row defines,
+  "schematic switch symbol","GPIO number","key name in this config file"
+  Any key switch position can be changed in this table.
+  E.G. swapping 'ctrl' and 'shift' in the table swaps the positions of 'ctrl' key
+  and 'shift' key.
+
++ 6-key table
+  Each row defines,
+  assigned key: alphabet or number.
+  '1st key' and '2nd key' combination by number, which is the number part of 'k*' name.
+  modified key by the modifier key.
+  The most of 'shift', 'alt', 'ctrl' modifier positions are empty.  In those cases the
+  modifiers simply add the named modifier bits on the key events.
+
++ fkey table
+  This table defines the function keys: f0 to f3.
+
++ fmode table
+  When 'shift' and 'k0' to 'k3' are pressed at the same time, the keyboard function
+  switches to the function mode, and use this table.
+  Pressing again 'shift' and 'k0' to 'k3' at the same time, it backs to the regular
+  mode.
+
+** License
+Unless otherwise explicitly stated,
+all files in this project are released under GNU General Public License Version 2.
+
+#+OPTIONS: \n:t ^:nil
