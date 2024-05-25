@@ -83,4 +83,17 @@ $ sudo systemctl restart twostkbd.service
 Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
+** Development history
+*** <2024-05-25 Sat>
+'f0' key is difficult to press. I removed it.
+Now, the function keys are 3: 'f1', 'f2' and 'f3'.
+'TAB' function is covered by 'shift'+'f2'.
+
+*** <2024-05-14 Tue>
+The program basically works okay.
+I started practice.
+
+*** <2024-05-10 Fri>
+Received PCB
+
 #+OPTIONS: \n:t ^:nil
