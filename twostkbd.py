@@ -27,6 +27,7 @@ logger.setLevel(logging.DEBUG)
 
 class KbdConfig():
     flabels=("alt","ctrl","shift","ext","k0","k1","k2","k3","k4","k5","f0","f1","f2","f3")
+    mnames=("shift", "alt", "ctrl", "ext")
     def get_keygpio_table(self, items):
         if len(items)<5: return 0
         try:
@@ -54,10 +55,9 @@ class KbdConfig():
             key=items[2].strip()
             firstkey=items[3].strip()
             secondkey=items[4].strip()
-            mnames=("shift", "alt", "ctrl", "ext")
             mkeys={}
             for i in range(4):
-                mkeys[mnames[i]]=items[5+i].strip()
+                mkeys[self.mnames[i]]=items[5+i].strip()
         except:
             logger.error("invalid value in 6-key table")
             return -1
@@ -77,9 +77,9 @@ class KbdConfig():
             return -1
         try:
             func=items[2].strip()
-            mfuncs=[""]*4
+            mfuncs={}
             for i in range(4):
-                mfuncs[i]=items[3+i].strip()
+                mfuncs[self.mnames[i]]=items[3+i].strip()
         except:
             logger.error("invalid value in fkey table")
             return -1
@@ -190,7 +190,7 @@ class KbdDevice():
         for led in self.leds.values():
             led.close()
 
-    def scancode(self, key: str) -> tuple[int, int]:
+    def scancode(self, key: str, noshift: bool = False) -> tuple[int, int]:
         scodes={
             '0':(0x27,0,0),
             'RET':(0x28,0,0),
@@ -238,6 +238,8 @@ class KbdDevice():
             'CHOME':(0x4a,self.modifiers['LeftCtr'],0),
             'CEND':(0x4d,self.modifiers['LeftCtr'],0),
             'CTAB':(0x2b,self.modifiers['LeftCtr'],0),
+            'SSP':(0x2c,self.modifiers['LeftShift'],0),
+            'SBS':(0x2a,self.modifiers['LeftShift'],0),
             '!':(0x1e,self.modifiers['LeftShift'],0),
             '@':(0x1f,self.modifiers['LeftShift'],0),
             '#':(0x20,self.modifiers['LeftShift'],0),
@@ -262,7 +264,7 @@ class KbdDevice():
         }
 
         mbits=0
-        if self.modkeys["shift"]:
+        if not noshift and self.modkeys["shift"]:
             mbits|=self.modifiers['LeftShift']
         if self.modkeys["alt"]:
             mbits|=self.modifiers['LeftAlt']
@@ -401,8 +403,15 @@ class KbdDevice():
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
         if fkey:
             fktable=self.config.fkeytable[int(kn)]
-            inkey=self.scancode(fktable["func"])
-            logger.debug("press %s,%d,%d,%d,%d" % (fktable["func"],
+            for mn in KbdConfig.mnames:
+                if self.modkeys[mn]:
+                    fk=fktable["mfuncs"][mn]
+                    if fk: break
+            else:
+                fk=fktable["func"]
+            if not fk: return
+            inkey=self.scancode(fk, noshift=True)
+            logger.debug("press %s,%d,%d,%d,%d" % (fk,
                                                    self.modkeys["shift"],self.modkeys["alt"],
                                                    self.modkeys["ctrl"],self.modkeys["ext"]))
         else:
