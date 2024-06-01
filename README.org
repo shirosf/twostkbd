@@ -1,4 +1,4 @@
-* Two stroke single hand keyboard
+* Two-stroke single hand keyboard
 ** Introduction
 This a following project to [[https://github.com/shirosf/binarykbd][Binary5 keyboard]]
 The basic idea of this keyboard is as follows:
@@ -84,6 +84,10 @@ Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-06-01 Sat>
+Send modifier key events without character key events, so that 'Alt' + 'Mouse click'
+type actions can work.
+
 *** <2024-05-25 Sat>
 'f0' key is difficult to press. I removed it.
 Now, the function keys are 3: 'f1', 'f2' and 'f3'.

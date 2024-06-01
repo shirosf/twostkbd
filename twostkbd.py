@@ -190,7 +190,8 @@ class KbdDevice():
         for led in self.leds.values():
             led.close()
 
-    def scancode(self, key: str, noshift: bool = False) -> tuple[int, int]:
+    def scancode(self, key: str, noshift: bool = False,
+                 noalt: bool = False) -> tuple[int, int]:
         scodes={
             '0':(0x27,0,0),
             'RET':(0x28,0,0),
@@ -239,7 +240,9 @@ class KbdDevice():
             'CEND':(0x4d,self.modifiers['LeftCtr'],0),
             'CTAB':(0x2b,self.modifiers['LeftCtr'],0),
             'SSP':(0x2c,self.modifiers['LeftShift'],0),
+            'SRET':(0x28,self.modifiers['LeftShift'],0),
             'SBS':(0x2a,self.modifiers['LeftShift'],0),
+            'STAB':(0x2b,self.modifiers['LeftShift'],0),
             '!':(0x1e,self.modifiers['LeftShift'],0),
             '@':(0x1f,self.modifiers['LeftShift'],0),
             '#':(0x20,self.modifiers['LeftShift'],0),
@@ -266,16 +269,19 @@ class KbdDevice():
         mbits=0
         if not noshift and self.modkeys["shift"]:
             mbits|=self.modifiers['LeftShift']
-        if self.modkeys["alt"]:
+        if not noalt and self.modkeys["alt"]:
             mbits|=self.modifiers['LeftAlt']
         if self.modkeys["ctrl"]:
             mbits|=self.modifiers['LeftCtr']
 
         if len(key)==1:
             if key>='a' and key<='z':
-                return (ord(key)-ord('a')+0x04, mbits);
+                return (ord(key)-ord('a')+0x04, mbits)
             if key>='1' and key<='9':
-                return (ord(key)-ord('1')+0x1e, mbits);
+                return (ord(key)-ord('1')+0x1e, mbits)
+        elif len(key)==0:
+            return (0, mbits)
+
         mbits|=scodes[key][1]
         mbits&=~scodes[key][2]
         return (scodes[key][0], mbits)
@@ -364,6 +370,7 @@ class KbdDevice():
         else:
             # modifier key
             self.modkeys[kname]=True
+            self.hidevent_pressed('', fkey=False)
 
     def on_released(self, bt) -> None:
         tsns=time.time_ns()
@@ -398,40 +405,49 @@ class KbdDevice():
         else:
             # modifier key is released
             self.modkeys[kname]=False
+            self.hidevent_released('', fkey=False)
+
+    def inkey_fkey(self, kn):
+        fktable=self.config.fkeytable[int(kn)]
+        for mn in KbdConfig.mnames:
+            if self.modkeys[mn]:
+                fk=fktable["mfuncs"][mn]
+                if fk: break
+        else:
+            fk=fktable["func"]
+        if not fk: return None
+        logger.debug("press %s,%d,%d,%d,%d" % (fk,
+                                               self.modkeys["shift"],self.modkeys["alt"],
+                                               self.modkeys["ctrl"],self.modkeys["ext"]))
+        return self.scancode(fk, noshift=True, noalt=True)
+
+    def inkey_sk(self, kn):
+        for i in range(36):
+            sktable=self.config.skeytable[i]
+            if sktable["1st"]!=self.buttons[self.firstkey]["kname"][1] or \
+               sktable["2nd"]!=kn:
+                continue
+            logger.debug("press %s,%d,%d,%d,%d" % (sktable["key"],
+                                                   self.modkeys["shift"],self.modkeys["alt"],
+                                                   self.modkeys["ctrl"],self.modkeys["ext"]))
+            if self.modkeys["ext"] and sktable["mkeys"]["ext"]:
+                return self.scancode(sktable["mkeys"]["ext"])
+            elif self.modkeys["shift"] and sktable["mkeys"]["shift"]:
+                return self.scancode(sktable["mkeys"]["shift"])
+            else:
+                return self.scancode(sktable["key"])
+        else:
+            return None
 
     def hidevent_pressed(self, kn, fkey):
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
-        if fkey:
-            fktable=self.config.fkeytable[int(kn)]
-            for mn in KbdConfig.mnames:
-                if self.modkeys[mn]:
-                    fk=fktable["mfuncs"][mn]
-                    if fk: break
-            else:
-                fk=fktable["func"]
-            if not fk: return
-            inkey=self.scancode(fk, noshift=True)
-            logger.debug("press %s,%d,%d,%d,%d" % (fk,
-                                                   self.modkeys["shift"],self.modkeys["alt"],
-                                                   self.modkeys["ctrl"],self.modkeys["ext"]))
+        if kn=='':
+            inkey=self.scancode(kn)
+        elif fkey:
+            inkey=self.inkey_fkey(kn)
         else:
-            for i in range(36):
-                sktable=self.config.skeytable[i]
-                if sktable["1st"]!=self.buttons[self.firstkey]["kname"][1] or \
-                   sktable["2nd"]!=kn:
-                    continue
-                if self.modkeys["ext"] and sktable["mkeys"]["ext"]:
-                    inkey=self.scancode(sktable["mkeys"]["ext"])
-                elif self.modkeys["shift"] and sktable["mkeys"]["shift"]:
-                    inkey=self.scancode(sktable["mkeys"]["shift"])
-                else:
-                    inkey=self.scancode(sktable["key"])
-                logger.debug("press %s,%d,%d,%d,%d" % (sktable["key"],
-                                                       self.modkeys["shift"],self.modkeys["alt"],
-                                                       self.modkeys["ctrl"],self.modkeys["ext"]))
-                break
-            else:
-                return
+            inkey=self.inkey_sk(kn)
+        if inkey==None: return
         scode[0]=inkey[1]
         scode[2]=inkey[0]
         self.devicefd.write(scode.decode("utf-8"))
@@ -439,7 +455,9 @@ class KbdDevice():
 
     def hidevent_released(self, kn, fkey):
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
-        if fkey:
+        if kn=='':
+            pass
+        elif fkey:
             fktable=self.config.fkeytable[int(kn)]
             logger.debug("release %s,%d,%d,%d,%d" % (fktable["func"],
                                                      self.modkeys["shift"],self.modkeys["alt"],
