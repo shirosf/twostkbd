@@ -89,9 +89,8 @@ class PracticeString(object):
         cslen=len(self.cset)
         for i in range(6):
             astr=""
-            k1=random.randrange(cslen)
             for j in range(4):
-                if self.mode=="mix":
+                if self.mode=="mix" or j==0:
                     k1=random.randrange(cslen)
                 astr+=self.cset[k1]
             pstrset.append(astr)
@@ -135,14 +134,16 @@ class PracticeRun(PracticeString):
                 else:
                     print("\033[91m%s\033[0m" % a, end="")
             print()
-        print("time=%.02f, cps=%.02f" % (dts/1000.0, 30*1000/dts))
+        if dts!=0:
+            print("time=%.02f, cps=%.02f" % (dts/1000.0, 30*1000/dts))
         self.totaltime_ms+=dts
         self.totalchrs+=30
         return 0
 
     def total_result(self):
-        print("total time=%.02f, cps=%.02f" % (self.totaltime_ms/1000.0,
-                                               self.totalchrs*1000/self.totaltime_ms))
+        if self.totaltime_ms!=0:
+            print("total time=%.02f, cps=%.02f" % (self.totaltime_ms/1000.0,
+                                                   self.totalchrs*1000/self.totaltime_ms))
 
 if __name__ == "__main__":
     random.seed()

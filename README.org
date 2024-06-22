@@ -84,6 +84,16 @@ Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-06-17 Mon>
+Modifier keys are difficult to keep holding, especially ALT key.
+For a solution, make hitting a modifier key be a locked status for the following
+character input.
+E.G.
+1. hit ALT and release, this locks ALT status
+2. input 'x', this becomes ALT-x, and the modifier lock status is released.
+When a modifier key is held pressed and a character input happens, the modifier key
+is not locked.
+
 *** <2024-06-01 Sat>
 Send modifier key events without character key events, so that 'Alt' + 'Mouse click'
 type actions can work.

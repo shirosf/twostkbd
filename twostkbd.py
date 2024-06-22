@@ -153,6 +153,7 @@ class KbdDevice():
         self.firstkey=None
         self.secondkey=None
         self.modkeys={"shift":False, "alt":False, "ctrl":False, "ext":False}
+        self.modkeys_lock={"shift":False, "alt":False, "ctrl":False, "ext":False}
         self.leds["LED0"].on()
         self.modifiers={'RightGUI':(1<<7), 'RightAlt':(1<<6), 'RightShift':(1<<5),
                         'RightCtl':(1<<4), 'LeftGui':(1<<3), 'LeftAlt':(1<<2),
@@ -190,8 +191,7 @@ class KbdDevice():
         for led in self.leds.values():
             led.close()
 
-    def scancode(self, key: str, noshift: bool = False,
-                 noalt: bool = False) -> tuple[int, int]:
+    def scancode(self, key: str, nomod: bool = False) -> tuple[int, int]:
         scodes={
             '0':(0x27,0,0),
             'RET':(0x28,0,0),
@@ -267,12 +267,13 @@ class KbdDevice():
         }
 
         mbits=0
-        if not noshift and self.modkeys["shift"]:
-            mbits|=self.modifiers['LeftShift']
-        if not noalt and self.modkeys["alt"]:
-            mbits|=self.modifiers['LeftAlt']
-        if self.modkeys["ctrl"]:
-            mbits|=self.modifiers['LeftCtr']
+        if not nomod:
+            if self.modkeys["shift"]:
+                mbits|=self.modifiers['LeftShift']
+            if self.modkeys["alt"]:
+                mbits|=self.modifiers['LeftAlt']
+            if self.modkeys["ctrl"]:
+                mbits|=self.modifiers['LeftCtr']
 
         if len(key)==1:
             if key>='a' and key<='z':
@@ -285,6 +286,14 @@ class KbdDevice():
         mbits|=scodes[key][1]
         mbits&=~scodes[key][2]
         return (scodes[key][0], mbits)
+
+    def modkeys_unlock(self) -> None:
+        for bt,btv in self.buttons.items():
+            if btv["kname"][0]=='k' or btv["kname"][0]=='f': continue
+            if self.modkeys_lock[btv["kname"]]:
+                self.modkeys_lock[btv["kname"]]=False
+                if self.buttons[bt]["state"]==0:
+                    self.modkeys[btv["kname"]]=False
 
     def check_fmode_switch(self, tsns: int) -> bool:
         if tsns-self.fmode_switching_ts<KbdDevice.FMODE_SWITCHING_GUARD_NS: return True
@@ -358,6 +367,7 @@ class KbdDevice():
                 #if self.check_fmode_switch(kname): return
                 self.secondkey=bt
                 self.hidevent_pressed(kname[1], fkey=False)
+                self.modkeys_unlock()
             else:
                 logger.debug("ignore 3rd key press:%s" % kname)
 
@@ -367,8 +377,14 @@ class KbdDevice():
                 self.hidevent_pressed(kname[1], fkey=True)
             self.firstkey=None
             self.leds["LED1"].off()
+            self.modkeys_unlock()
         else:
             # modifier key
+            if self.modkeys_lock[kname]:
+                self.modkeys_lock[kname]=False
+                return
+            self.modkeys_lock[kname]=True
+            self.leds["LED1"].on()
             self.modkeys[kname]=True
             self.hidevent_pressed('', fkey=False)
 
@@ -404,22 +420,29 @@ class KbdDevice():
             self.hidevent_released(kname[1], fkey=True)
         else:
             # modifier key is released
+            if self.modkeys_lock[kname]:
+                return
+            self.modkeys_unlock()
             self.modkeys[kname]=False
+            self.leds["LED1"].off()
             self.hidevent_released('', fkey=False)
 
     def inkey_fkey(self, kn):
         fktable=self.config.fkeytable[int(kn)]
+        nomod=False
         for mn in KbdConfig.mnames:
             if self.modkeys[mn]:
                 fk=fktable["mfuncs"][mn]
-                if fk: break
+                if fk:
+                    nomod=True
+                    break
         else:
             fk=fktable["func"]
         if not fk: return None
         logger.debug("press %s,%d,%d,%d,%d" % (fk,
                                                self.modkeys["shift"],self.modkeys["alt"],
                                                self.modkeys["ctrl"],self.modkeys["ext"]))
-        return self.scancode(fk, noshift=True, noalt=True)
+        return self.scancode(fk, nomod=nomod)
 
     def inkey_sk(self, kn):
         for i in range(36):
