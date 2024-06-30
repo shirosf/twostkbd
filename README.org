@@ -3,10 +3,15 @@
 This a following project to [[https://github.com/shirosf/binarykbd][Binary5 keyboard]]
 The basic idea of this keyboard is as follows:
 + hit one of 6 keys twice: 36 codes
+[[./photos/twostkbd_finger_maps1.png]]
 + 4 modifiers: 'shift','ctrl','alt', and one more 'ext'
-+ 4 function keys: 'TAB','SPACE','BACK SPACE','RETERN'
+[[./photos/twostkbd_finger_maps2.png]]
++ 3 function keys: 'SPACE','BACK SPACE','RETERN'
+[[./photos/twostkbd_finger_maps3.png]]
+All key maps can be changed by a configuration file
 
-The total uses 14 keys.
+
+The total uses 13 keys.
 26 of the 36 codes are used for alphabet character codes.
 The other 10 are used for numerical character codes.
 'ext' modifiers support symbol character codes.
