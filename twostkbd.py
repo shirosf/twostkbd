@@ -175,12 +175,17 @@ class KbdDevice():
             if btv["state"]==1: count+=1
         return count
 
-    def value_of_pressed(self) -> int:
+    def value_of_pressed(self, nocache=False) -> int:
         v=0
-        for btv in self.buttons.values():
-            if btv["state"]==1:
-                gpn=self.config.btgpios[btv["kname"]]
-                v|=1<<gpn
+        for bt,btv in self.buttons.items():
+            if nocache:
+                if bt.is_pressed:
+                    gpn=self.config.btgpios[btv["kname"]]
+                    v|=1<<gpn
+            else:
+                if btv["state"]==1:
+                    gpn=self.config.btgpios[btv["kname"]]
+                    v|=1<<gpn
         return v
 
     def print_skeytable(self):
@@ -262,6 +267,7 @@ class KbdDevice():
             'CTLZ':(ord('z')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
             'CTLG':(ord('g')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
             'CTL/':(0x38,self.modifiers['LeftCtr'],0),
+            'ALTV':(ord('v')-ord('a')+0x04,self.modifiers['LeftAlt'],0),
             '!':(0x1e,self.modifiers['LeftShift'],0),
             '@':(0x1f,self.modifiers['LeftShift'],0),
             '#':(0x20,self.modifiers['LeftShift'],0),
@@ -321,9 +327,11 @@ class KbdDevice():
             return False
         if tsns-self.multikey_start_ts < KbdDevice.MULTIKEYS_DETECT_NS: return False
         if self.number_of_pressed()<3: return False
-        v=self.value_of_pressed()
+        v=self.value_of_pressed(nocache=True)
         self.modkeys={"shift":False, "alt":False, "ctrl":False, "ext":False}
         self.modkeys_lock={"shift":False, "alt":False, "ctrl":False, "ext":False}
+        self.firstkey=None
+        self.secondkey=None
         if v not in self.config.multikeystable.keys():
             # if more than 2 keys are pushed and not defined in the table, ignore this
             return True
