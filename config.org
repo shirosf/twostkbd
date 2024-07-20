@@ -70,10 +70,29 @@
 |     3 | SP   | RIGHT | SSP  |      | DOWN |
 |-------+------+-------+------+------+------|
 
-** fmode table
-|-----+------+-------+-------+-------+-----+-------+-----+----+--------+-------+-------+-------+-----|
-| alt | ctrl | shift | ext   | k0    | k1  | k2    | k3  | k4 | k5     | f0    | f1    | f2    | f3  |
-|-----+------+-------+-------+-------+-----+-------+-----+----+--------+-------+-------+-------+-----|
-|   0 | COPY | HOME  | CLEFT | LEFT  | UP  | RIGHT | END | BS | CRIGHT | PASTE | DOWN  | RET   | SP  |
-|   1 | CTAB | TAB   |       | CHOME | PUP | CEND  |     |    | ESC    |       | PDOWN | CSDEL | DEL |
-|-----+------+-------+-------+-------+-----+-------+-----+----+--------+-------+-------+-------+-----|
+** multikeys table
+|--------+-------------------|
+| func   | keys              |
+|--------+-------------------|
+| ESC    | shift,k0,k1,k2,k3 |
+| UP     | k0,k1,k2          |
+| DOWN   | ext,f1,f2         |
+| PUP    | ctrl,k0,k1,k2     |
+| PDOWN  | ctrl,ext,f1,f2    |
+| LEFT   | shift,k0,k1       |
+| RIGHT  | k1,k2,k3          |
+| CLEFT  | shift,k0,k1,k2    |
+| CRIGHT | k0,k1,k2,k3       |
+| HOME   | ctrl,ext,f1       |
+| END    | f1,f2,k3          |
+| CHOME  | ctrl,ext,f1,f2    |
+| CEND   | ext,f1,f2,k3      |
+| CTLX   | shift,k0,k2,k3    |
+| CTLF   | ctrl,ext,f2,k3    |
+| CTLC   | shift,k0,k2       |
+| CTLV   | k0,k2,k3          |
+| CTLG   | shift,k1,k3       |
+| CTL/   | shift,k2,k3       |
+| CTLY   | shift,k1,k2       |
+| CTLZ   | k0,k1,k3          |
+|--------+-------------------|

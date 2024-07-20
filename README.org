@@ -78,17 +78,21 @@ $ sudo systemctl restart twostkbd.service
 + fkey table
   This table defines the function keys: f0 to f3.
 
-+ fmode table
-  When 'shift' and 'k0' to 'k3' are pressed at the same time, the keyboard function
-  switches to the function mode, and use this table.
-  Pressing again 'shift' and 'k0' to 'k3' at the same time, it backs to the regular
-  mode.
++ multikeys table
+  When more than 2 keys are pressed at the same time, it functions as "func" column
+  defined function.
 
 ** License
 Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-07-18 Thu>
+Removed "fmode table", added "multikeys table" instead.
+
+*** <2024-06-30 Sun>
+Published [[https://youtu.be/tp5e6nVgrqI][Youtube Video]].
+
 *** <2024-06-17 Mon>
 Modifier keys are difficult to keep holding, especially ALT key.
 For a solution, make hitting a modifier key be a locked status for the following

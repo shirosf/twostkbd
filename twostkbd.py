@@ -86,13 +86,16 @@ class KbdConfig():
         self.fkeytable[index]={"func":func, "mfuncs":mfuncs}
         return 0
 
-    def get_fmode_table(self, items):
-        if len(items)<16: return 0
+    def get_multikeys_table(self, items):
+        if len(items)<4: return 0
         item1=items[1].strip()
-        if (item1!="0") and (item1!="1"):return 0
-        item1=int(item1)
-        for i in range(13):
-            self.fmodetable[item1][self.flabels[i+1]]=items[i+2].strip()
+        if item1=="": return 0
+        if item1=='func': return 0
+        multikeys=items[2].strip().split(",")
+        v=0
+        for mk in multikeys:
+            v|=1<<self.btgpios[mk]
+        self.multikeystable[v]=item1
         return 0
 
     def readconf(self, conffile: str="config.org") -> int:
@@ -100,7 +103,7 @@ class KbdConfig():
         state=0
         self.skeytable=[None]*36
         self.fkeytable=[None]*4
-        self.fmodetable=[{},{}]
+        self.multikeystable={}
         self.btgpios={}
         while True:
             keydef={}
@@ -113,7 +116,7 @@ class KbdConfig():
                     state=2
                 if line.find("fkey table")>0:
                     state=3
-                if line.find("fmode table")>0:
+                if line.find("multikeys table")>0:
                     state=4
                 continue
             if line[0]!='|':
@@ -127,13 +130,14 @@ class KbdConfig():
             if state==3:
                 if self.get_fkey_table(items)!=0: return -1
             if state==4:
-                if self.get_fmode_table(items)!=0: return -1
+                if self.get_multikeys_table(items)!=0: return -1
         inf.close()
         return 0
 
 class KbdDevice():
     CHATTERING_GUARD_NS=30000000
-    FMODE_SWITCHING_GUARD_NS=500000000
+    MULTIKEYS_CHECK_NS=20000000
+    MULTIKEYS_DETECT_NS=50000000
     def __init__(self):
         self.config=KbdConfig()
         if self.config.readconf()!=0:
@@ -142,14 +146,18 @@ class KbdDevice():
         self.buttons={}
         ledgpios={"LED0":17, "LED1":27, "LED2":22}
         self.leds={"LED0":None, "LED1":None, "LED2":None}
-        self.fmode_switching_ts=time.time_ns()
+        tsns=time.time_ns()
         for l in self.config.btgpios.keys():
             bt=Button(self.config.btgpios[l])
-            self.buttons[bt]={"kname":l, "ts":time.time_ns(), "state":0, "ontimer":None}
+            self.buttons[bt]={"kname":l, "ts":time.time_ns(), "state":0, "ontimer":None,
+                              "offtimer":None}
             bt.when_pressed=self.on_pressed
             bt.when_released=self.on_released
         for l in self.leds.keys():
             self.leds[l]=LED(ledgpios[l])
+        self.multikeyswait=None
+        self.multikey_start_ts=0
+        self.multikey_pressed=False
         self.firstkey=None
         self.secondkey=None
         self.modkeys={"shift":False, "alt":False, "ctrl":False, "ext":False}
@@ -160,6 +168,20 @@ class KbdDevice():
                         'LeftShift':(1<<1), 'LeftCtr':(1<<0)}
         self.devicefd=open("/dev/hidg0", "w")
         self.print_skeytable()
+
+    def number_of_pressed(self) -> int:
+        count=0
+        for btv in self.buttons.values():
+            if btv["state"]==1: count+=1
+        return count
+
+    def value_of_pressed(self) -> int:
+        v=0
+        for btv in self.buttons.values():
+            if btv["state"]==1:
+                gpn=self.config.btgpios[btv["kname"]]
+                v|=1<<gpn
+        return v
 
     def print_skeytable(self):
         fhelp={"0":"r ","1":"m ", "2":"i ", "3":"t ", "4":"ir", "5":"tr"}
@@ -172,17 +194,6 @@ class KbdDevice():
             print("%s(%s)-%s(%s): %s, %s, %s" % ( sk["1st"], fhelp[sk["1st"]],
                                                   sk["2nd"], fhelp[sk["2nd"]],
                                                   sk["key"], skm0, sk["mkeys"]["ext"]))
-
-    def print_fmodetable(self):
-        for fl in self.config.flabels[1:]:
-            print("%06s" % fl, end='')
-        print()
-        for fl in self.config.flabels[1:]:
-            print("%06s" % self.config.fmodetable[0][fl], end='')
-        print()
-        for fl in self.config.flabels[1:]:
-            print("%06s" % self.config.fmodetable[1][fl], end='')
-        print()
 
     def close(self):
         self.devicefd.close()
@@ -243,6 +254,14 @@ class KbdDevice():
             'SRET':(0x28,self.modifiers['LeftShift'],0),
             'SBS':(0x2a,self.modifiers['LeftShift'],0),
             'STAB':(0x2b,self.modifiers['LeftShift'],0),
+            'CTLX':(ord('x')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
+            'CTLC':(ord('c')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
+            'CTLV':(ord('v')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
+            'CTLF':(ord('f')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
+            'CTLY':(ord('y')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
+            'CTLZ':(ord('z')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
+            'CTLG':(ord('g')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
+            'CTL/':(0x38,self.modifiers['LeftCtr'],0),
             '!':(0x1e,self.modifiers['LeftShift'],0),
             '@':(0x1f,self.modifiers['LeftShift'],0),
             '#':(0x20,self.modifiers['LeftShift'],0),
@@ -295,76 +314,57 @@ class KbdDevice():
                 if self.buttons[bt]["state"]==0:
                     self.modkeys[btv["kname"]]=False
 
-    def check_fmode_switch(self, tsns: int) -> bool:
-        if tsns-self.fmode_switching_ts<KbdDevice.FMODE_SWITCHING_GUARD_NS: return True
-        ckeys=("shift", "k0", "k1", "k2", "k3")
-        for bt,btv in self.buttons.items():
-            if (btv["kname"] in ckeys) and not bt.is_pressed: return False
-        for bt in self.buttons.keys():
-            if self.buttons[bt]["ontimer"]!=None:
-                self.buttons[bt]["ontimer"].cancel()
-                self.buttons[bt]["ontimer"]=None
-
-        if not self.leds["LED2"].is_lit:
-            self.leds["LED2"].on()
-            self.print_fmodetable()
-        else:
-            self.leds["LED2"].off()
-            self.print_skeytable()
-        self.leds["LED1"].off()
-        self.secondkey=None
-        self.firstkey=None
-        for i in self.modkeys.keys(): self.modkeys[i]=False
-        self.fmode_switching_ts=tsns
+    def check_multikeys_switch(self, tsns: int) -> bool:
+        if self.multikey_pressed: return True
+        if self.multikey_start_ts==0:
+            self.multikey_start_ts=tsns
+            return False
+        if tsns-self.multikey_start_ts < KbdDevice.MULTIKEYS_DETECT_NS: return False
+        if self.number_of_pressed()<3: return False
+        v=self.value_of_pressed()
+        self.modkeys={"shift":False, "alt":False, "ctrl":False, "ext":False}
+        self.modkeys_lock={"shift":False, "alt":False, "ctrl":False, "ext":False}
+        if v not in self.config.multikeystable.keys():
+            # if more than 2 keys are pushed and not defined in the table, ignore this
+            return True
+        self.on_pressed_multikeys(v)
         return True
 
-    def defered_on_pressed(self, bt) -> None:
-        self.buttons[bt]["ontimer"]=None
-        if not bt.is_pressed: return
-        self.buttons[bt]["state"]=1
-        kname=self.buttons[bt]["kname"]
-        if not self.leds["LED2"].is_lit:
-            self.on_pressed_rmode(bt, kname)
-        else:
-            self.on_pressed_fmode(bt, kname)
-
-    def on_pressed(self, bt) -> None:
-        tsns=time.time_ns()
-        if self.check_fmode_switch(tsns): return
-        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS:
-            self.buttons[bt]["ts"]=tsns
-            return
-        #if self.buttons[bt]["ontimer"]!=None: return
-        self.buttons[bt]["ts"]=tsns
-        self.buttons[bt]["ontimer"]=threading.Timer(KbdDevice.CHATTERING_GUARD_NS/1E9,
-                                                    self.defered_on_pressed, args=(bt,))
-        self.buttons[bt]["ontimer"].start()
-
-    def on_pressed_fmode(self, bt, kname) -> None:
-        if kname=="alt":
-            self.modkeys[kname]=True
-            return
-        i=1 if self.modkeys["alt"] else 0
-        fmfunc=self.config.fmodetable[i][kname]
-        if not fmfunc: return
-        altbk=self.modkeys["alt"]
-        self.modkeys["alt"]=False
-        inkey=self.scancode(fmfunc)
-        self.modkeys["alt"]=altbk
-        logger.debug("press %s/%d" % (fmfunc,self.modkeys["alt"]))
+    def on_pressed_multikeys(self, v: int) -> None:
+        kname=self.config.multikeystable[v]
+        self.multikey_pressed=True
+        inkey=self.scancode(kname, nomod=True)
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
         scode[0]=inkey[1]
         scode[2]=inkey[0]
         self.devicefd.write(scode.decode("utf-8"))
         self.devicefd.flush()
 
+    def defered_on_pressed(self, bt, tsns) -> None:
+        self.buttons[bt]["ontimer"]=None
+        if not bt.is_pressed: return
+        self.buttons[bt]["state"]=1
+        if self.check_multikeys_switch(tsns): return
+        kname=self.buttons[bt]["kname"]
+        self.on_pressed_rmode(bt, kname)
+
+    def on_pressed(self, bt) -> None:
+        tsns=time.time_ns()
+        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS:
+            self.buttons[bt]["ts"]=tsns
+            return
+        self.buttons[bt]["ts"]=tsns
+        self.buttons[bt]["ontimer"]=threading.Timer(KbdDevice.CHATTERING_GUARD_NS/1E9,
+                                                    self.defered_on_pressed, args=(bt,tsns))
+        self.buttons[bt]["ontimer"].start()
+
     def on_pressed_rmode(self, bt, kname) -> None:
+        if self.multikeyswait!=None: return
         if kname[0]=='k':
             if self.firstkey==None:
                 self.firstkey=bt
                 self.leds["LED1"].on()
             elif self.secondkey==None:
-                #if self.check_fmode_switch(kname): return
                 self.secondkey=bt
                 self.hidevent_pressed(kname[1], fkey=False)
                 self.modkeys_unlock()
@@ -388,26 +388,35 @@ class KbdDevice():
             self.modkeys[kname]=True
             self.hidevent_pressed('', fkey=False)
 
+    def on_released_multikeys(self) -> None:
+        if self.number_of_pressed()>0: return
+        self.leds["LED1"].off()
+        scode=bytearray(b"\0\0\0\0\0\0\0\0")
+        self.multikey_pressed=False
+        self.devicefd.write(scode.decode("utf-8"))
+        self.devicefd.flush()
+
     def on_released(self, bt) -> None:
         tsns=time.time_ns()
-        if tsns-self.fmode_switching_ts<KbdDevice.FMODE_SWITCHING_GUARD_NS: return
-        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS: return
+        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS:
+            self.buttons[bt]["ts"]=tsns
+            return
+        self.buttons[bt]["ts"]=tsns
+        self.buttons[bt]["offtimer"]=threading.Timer(
+            (KbdDevice.CHATTERING_GUARD_NS+KbdDevice.MULTIKEYS_CHECK_NS)/1E9,
+            self.defered_on_released, args=(bt, tsns))
+        self.buttons[bt]["offtimer"].start()
+
+    def defered_on_released(self, bt, tsns) -> None:
+        self.buttons[bt]["offtimer"]=None
         if self.buttons[bt]["state"]!=1: return
         self.buttons[bt]["ts"]=tsns
         self.buttons[bt]["state"]=0
-        kname=self.buttons[bt]["kname"]
-        if not self.leds["LED2"].is_lit:
-            self.on_released_rmode(bt, kname)
-        else:
-            self.on_released_fmode(bt, kname)
-
-    def on_released_fmode(self, bt, kname) -> None:
-        if kname=="alt":
-            self.modkeys[kname]=False
+        if self.multikey_pressed:
+            self.on_released_multikeys()
             return
-        scode=bytearray(b"\0\0\0\0\0\0\0\0")
-        self.devicefd.write(scode.decode("utf-8"))
-        self.devicefd.flush()
+        kname=self.buttons[bt]["kname"]
+        self.on_released_rmode(bt, kname)
 
     def on_released_rmode(self, bt, kname) -> None:
         if kname[0]=='k':
@@ -463,6 +472,14 @@ class KbdDevice():
             return None
 
     def hidevent_pressed(self, kn, fkey):
+        nump=self.number_of_pressed()
+        self.multikeyswait=threading.Timer(KbdDevice.MULTIKEYS_CHECK_NS/1E9,
+                                           self.defered_hidevent_pressed, args=(kn, fkey, nump))
+        self.multikeyswait.start()
+
+    def defered_hidevent_pressed(self, kn, fkey, nump) -> None:
+        self.multikeyswait=None
+        if self.number_of_pressed()>nump: return
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
         if kn=='':
             inkey=self.scancode(kn)
