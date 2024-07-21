@@ -136,7 +136,7 @@ class KbdConfig():
 
 class KbdDevice():
     CHATTERING_GUARD_NS=30000000
-    MULTIKEYS_CHECK_NS=20000000
+    MULTIKEYS_CHECK_NS=30000000
     MULTIKEYS_DETECT_NS=50000000
     def __init__(self):
         self.config=KbdConfig()
@@ -157,7 +157,7 @@ class KbdDevice():
             self.leds[l]=LED(ledgpios[l])
         self.multikeyswait=None
         self.multikey_start_ts=0
-        self.multikey_pressed=False
+        self.multikey_pressedv=0
         self.firstkey=None
         self.secondkey=None
         self.modkeys={"shift":False, "alt":False, "ctrl":False, "ext":False}
@@ -169,10 +169,13 @@ class KbdDevice():
         self.devicefd=open("/dev/hidg0", "w")
         self.print_skeytable()
 
-    def number_of_pressed(self) -> int:
+    def number_of_pressed(self, nocache=False) -> int:
         count=0
-        for btv in self.buttons.values():
-            if btv["state"]==1: count+=1
+        for bt,btv in self.buttons.items():
+            if nocache:
+                if bt.is_pressed: count+=1
+            else:
+                if btv["state"]==1: count+=1
         return count
 
     def value_of_pressed(self, nocache=False) -> int:
@@ -267,7 +270,7 @@ class KbdDevice():
             'CTLZ':(ord('z')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
             'CTLG':(ord('g')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
             'CTL/':(0x38,self.modifiers['LeftCtr'],0),
-            'ALTV':(ord('v')-ord('a')+0x04,self.modifiers['LeftAlt'],0),
+            'ALTX':(ord('x')-ord('a')+0x04,self.modifiers['LeftAlt'],0),
             '!':(0x1e,self.modifiers['LeftShift'],0),
             '@':(0x1f,self.modifiers['LeftShift'],0),
             '#':(0x20,self.modifiers['LeftShift'],0),
@@ -321,13 +324,16 @@ class KbdDevice():
                     self.modkeys[btv["kname"]]=False
 
     def check_multikeys_switch(self, tsns: int) -> bool:
-        if self.multikey_pressed: return True
         if self.multikey_start_ts==0:
             self.multikey_start_ts=tsns
             return False
         if tsns-self.multikey_start_ts < KbdDevice.MULTIKEYS_DETECT_NS: return False
-        if self.number_of_pressed()<3: return False
+        mv=0
+        for m in self.modkeys.values():
+            if m: mv+=1
+        if self.number_of_pressed()-mv < 3: return self.multikey_pressedv>0
         v=self.value_of_pressed(nocache=True)
+        self.leds["LED1"].off()
         self.modkeys={"shift":False, "alt":False, "ctrl":False, "ext":False}
         self.modkeys_lock={"shift":False, "alt":False, "ctrl":False, "ext":False}
         self.firstkey=None
@@ -340,7 +346,7 @@ class KbdDevice():
 
     def on_pressed_multikeys(self, v: int) -> None:
         kname=self.config.multikeystable[v]
-        self.multikey_pressed=True
+        self.multikey_pressedv=v
         inkey=self.scancode(kname, nomod=True)
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
         scode[0]=inkey[1]
@@ -375,7 +381,6 @@ class KbdDevice():
             elif self.secondkey==None:
                 self.secondkey=bt
                 self.hidevent_pressed(kname[1], fkey=False)
-                self.modkeys_unlock()
             else:
                 logger.debug("ignore 3rd key press:%s" % kname)
 
@@ -385,7 +390,6 @@ class KbdDevice():
                 self.hidevent_pressed(kname[1], fkey=True)
             self.firstkey=None
             self.leds["LED1"].off()
-            self.modkeys_unlock()
         else:
             # modifier key
             if self.modkeys_lock[kname]:
@@ -397,10 +401,14 @@ class KbdDevice():
             self.hidevent_pressed('', fkey=False)
 
     def on_released_multikeys(self) -> None:
-        if self.number_of_pressed()>0: return
-        self.leds["LED1"].off()
+        if self.number_of_pressed()==0:
+            self.multikey_pressedv=0
+            self.leds["LED1"].off()
+            self.multikey_start_ts=0
+        else:
+            nv=self.value_of_pressed(nocache=True)
+            self.multikey_pressedv=nv
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
-        self.multikey_pressed=False
         self.devicefd.write(scode.decode("utf-8"))
         self.devicefd.flush()
 
@@ -420,7 +428,7 @@ class KbdDevice():
         if self.buttons[bt]["state"]!=1: return
         self.buttons[bt]["ts"]=tsns
         self.buttons[bt]["state"]=0
-        if self.multikey_pressed:
+        if self.multikey_pressedv>0:
             self.on_released_multikeys()
             return
         kname=self.buttons[bt]["kname"]
@@ -493,8 +501,10 @@ class KbdDevice():
             inkey=self.scancode(kn)
         elif fkey:
             inkey=self.inkey_fkey(kn)
+            self.modkeys_unlock()
         else:
             inkey=self.inkey_sk(kn)
+            self.modkeys_unlock()
         if inkey==None: return
         scode[0]=inkey[1]
         scode[2]=inkey[0]

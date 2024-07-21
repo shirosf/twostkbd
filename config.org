@@ -71,28 +71,27 @@
 |-------+------+-------+------+------+------|
 
 ** multikeys table
-|--------+-------------------|
-| func   | keys              |
-|--------+-------------------|
-| ESC    | shift,k0,k1,k2,k3 |
-| UP     | k0,k1,k2          |
-| DOWN   | ext,f1,f2         |
-| PUP    | ctrl,k0,k1,k2     |
-| PDOWN  | ctrl,ext,f1,f2    |
-| LEFT   | shift,k0,k1       |
-| RIGHT  | k1,k2,k3          |
-| CLEFT  | shift,k0,k1,k2    |
-| CRIGHT | k0,k1,k2,k3       |
-| HOME   | ctrl,ext,f1       |
-| END    | f1,f2,k3          |
-| CHOME  | ctrl,ext,f1,f2    |
-| CEND   | ext,f1,f2,k3      |
-| CTLX   | shift,k0,k2,k3    |
-| CTLF   | ctrl,ext,f2,k3    |
-| CTLC   | shift,k0,k2       |
-| CTLV   | k0,k2,k3          |
-| CTLG   | shift,k1,k3       |
-| CTL/   | shift,k2,k3       |
-| CTLY   | shift,k1,k2       |
-| ALTV   | k0,k1,k3          |
-|--------+-------------------|
+|--------+----------------|
+| func   | keys           |
+|--------+----------------|
+| ESC    | k0,k1,k2,k3    |
+| LEFT   | k0,k1,k2       |
+| RIGHT  | k0,k1,k3       |
+| UP     | k0,k1,k5       |
+| DOWN   | k0,k1,f3       |
+| PUP    | k1,k2,k5       |
+| PDOWN  | k1,k2,f3       |
+| HOME   | f1,f2,f3       |
+| END    | f1,f2,k5       |
+| CHOME  | k0,k2,k5       |
+| CEND   | k0,k2,f3       |
+| CLEFT  | k0,f2,k3       |
+| CRIGHT | k0,f2,k5       |
+| CTLG   | k0,k1,k2,k5    |
+| CTLC   | k0,k2,k3       |
+| CTLV   | k1,k2,k3       |
+| CTLX   | k1,k2,k4       |
+| ALTX   | f1,f2,k3       |
+| CTL/   | k0,k1,k2,f3    |
+|--------+----------------|
+Don't use modifier keys(shift,alt,ctrl,ext).
