@@ -136,6 +136,7 @@ class KbdConfig():
 
 class KbdDevice():
     CHATTERING_GUARD_NS=30000000
+    CHATTERING_GUARD_REL_NS=20000000
     MULTIKEYS_CHECK_NS=30000000
     MULTIKEYS_DETECT_NS=50000000
     def __init__(self):
@@ -364,6 +365,7 @@ class KbdDevice():
 
     def on_pressed(self, bt) -> None:
         tsns=time.time_ns()
+        if self.buttons[bt]["ontimer"]!=None: return
         if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS:
             self.buttons[bt]["ts"]=tsns
             return
@@ -414,7 +416,8 @@ class KbdDevice():
 
     def on_released(self, bt) -> None:
         tsns=time.time_ns()
-        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_NS:
+        if self.buttons[bt]["offtimer"]!=None: return
+        if tsns-self.buttons[bt]["ts"]<KbdDevice.CHATTERING_GUARD_REL_NS:
             self.buttons[bt]["ts"]=tsns
             return
         self.buttons[bt]["ts"]=tsns
@@ -426,7 +429,6 @@ class KbdDevice():
     def defered_on_released(self, bt, tsns) -> None:
         self.buttons[bt]["offtimer"]=None
         if self.buttons[bt]["state"]!=1: return
-        self.buttons[bt]["ts"]=tsns
         self.buttons[bt]["state"]=0
         if self.multikey_pressedv>0:
             self.on_released_multikeys()
