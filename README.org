@@ -87,6 +87,11 @@ Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-08-01 Thu>
+Refactored the code.
+Using "keyqueue", removed multiple timers.
+Using "bounce_time" to create Button object, removed the chattering cancellation process.
+
 *** <2024-07-21 Sun>
 Tuned "multikeys table" to be convenient for cursor moves.
 
