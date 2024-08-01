@@ -381,7 +381,10 @@ class KbdDevice():
         rk0=None
         if ki>2:
             mkv=self.check_possible_multikeys(ki, exact=True)
-            if not mkv: return
+            if not mkv:
+                for i in range(ki): self.keyqueue.pop(0)
+                self.multikey_pressedv=0
+                return
             self.on_multikeys_pressed(mkv)
             return
         for i in range(ki):
