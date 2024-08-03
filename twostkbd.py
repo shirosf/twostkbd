@@ -369,7 +369,11 @@ class KbdDevice():
             if i==ki: break
             if bt==None: continue
             kname=self.buttons[bt]["kname"]
-            mkbits|=1<<self.config.btgpios[kname]
+            kbit=1<<self.config.btgpios[kname]
+            if ki==2 and mkbits==kbit:
+                # the same key twice
+                return 0
+            mkbits|=kbit
         for mkv in self.config.multikeystable.keys():
             if exact:
                 if mkv == mkbits: return mkv
@@ -387,8 +391,10 @@ class KbdDevice():
                 return
             self.on_multikeys_pressed(mkv)
             return
+        or_pressed=False
         for i in range(ki):
             bt, tsns=self.keyqueue.pop(0)
+            or_pressed|=bt.is_pressed
             kname=self.buttons[bt]["kname"]
             if kname[0]=="f":
                 if rk0!=None:
@@ -396,10 +402,12 @@ class KbdDevice():
                     rk0=None
                     continue
                 self.on_fkey_pressed(bt, kname)
+                if not or_pressed: self.clear_devicefd()
                 continue
             if kname[0]=="k":
                 if rk0!=None:
                     self.on_rkey_pressed(rk0, bt)
+                    if not or_pressed: self.clear_devicefd()
                     rk0=None
                     continue
                 rk0=bt

@@ -87,6 +87,13 @@ Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-08-02 Fri>
+Changed "multikeys table", "up" and "down" are swapped.
+
+[[./photos/twostkbd_finger_maps4.png]]
+
+[[./photos/twostkbd_finger_maps5.png]]
+
 *** <2024-08-01 Thu>
 Refactored the code.
 Using "keyqueue", removed multiple timers.
@@ -94,10 +101,6 @@ Using "bounce_time" to create Button object, removed the chattering cancellation
 
 *** <2024-07-21 Sun>
 Tuned "multikeys table" to be convenient for cursor moves.
-
-[[./photos/twostkbd_finger_maps4.png]]
-
-[[./photos/twostkbd_finger_maps5.png]]
 
 *** <2024-07-18 Thu>
 Removed "fmode table", added "multikeys table" instead.
