@@ -537,6 +537,8 @@ class KbdDevice():
 
     def clear_devicefd(self):
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
+        inkey_m=self.scancode('')
+        scode[0]=inkey_m[1]
         nwd=scode.decode("utf-8")
         if self.last_write!=nwd:
             self.last_write=nwd
