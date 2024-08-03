@@ -87,6 +87,11 @@ Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-08-03 Sat>
+Moved TAB to "multikeys table". "k1,k2,k3" is easier than "shift-f2".
+"fkey table" modifier functions are all empty, modifier keys are applied on the all.
+Changed MULTIKEY_GAP to 50msec from 30msec.
+
 *** <2024-08-02 Fri>
 Changed "multikeys table", "up" and "down" are swapped.
 

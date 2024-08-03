@@ -136,7 +136,7 @@ class KbdConfig():
 
 class KbdDevice():
     BOUNCE_GUARD_SEC=0.01
-    MULTIKEY_GAP_NS=30000000
+    MULTIKEY_GAP_NS=50000000
     def __init__(self):
         self.config=KbdConfig()
         if self.config.readconf()!=0:
@@ -432,24 +432,23 @@ class KbdDevice():
 
     def on_multikeys_pressed(self, mkv:int) -> None:
         kname=self.config.multikeystable[mkv]
-        inkey=self.scancode(kname, nomod=True)
-        scode=bytearray(b"\0\0\0\0\0\0\0\0")
-        scode[0]=inkey[1]
-        scode[2]=inkey[0]
-        self.last_write=scode.decode("utf-8")
-        self.devicefd.write(self.last_write)
-        self.devicefd.flush()
+        self.hidevent_pressed(kname, "mult")
         self.multikey_pressedv=mkv
 
     def hidevent_pressed(self, kname: str, mode: str, kname0: str = 0):
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
         if mode=="reg":
-            inkey=self.inkey_sk(kname0[1], kname[1])
+            inkey=self.inkey_rk(kname0[1], kname[1])
             self.modkeys_unlock()
         elif mode=="mod":
             inkey=self.scancode('')
         elif mode=="func":
             inkey=self.inkey_fkey(kname[1])
+            self.modkeys_unlock()
+        elif mode=="mult":
+            # only "TAB" uses modifiers
+            nomod=False if kname=="TAB" else True
+            inkey=self.scancode(kname, nomod=nomod)
             self.modkeys_unlock()
         else:
             return
@@ -460,7 +459,7 @@ class KbdDevice():
         self.devicefd.write(self.last_write)
         self.devicefd.flush()
 
-    def inkey_sk(self, kn1, kn2):
+    def inkey_rk(self, kn1, kn2):
         for i in range(36):
             sktable=self.config.skeytable[i]
             if sktable["1st"]!=kn1 or \
@@ -477,6 +476,23 @@ class KbdDevice():
                 return self.scancode(sktable["key"])
         else:
             return None
+
+    def inkey_fkey(self, kn):
+        fktable=self.config.fkeytable[int(kn)]
+        nomod=False
+        for mn in KbdConfig.mnames:
+            if self.modkeys[mn]:
+                fk=fktable["mfuncs"][mn]
+                if fk:
+                    nomod=True
+                    break
+        else:
+            fk=fktable["func"]
+        if not fk: return None
+        logger.debug("press %s,%d,%d,%d,%d" % (fk,
+                                               self.modkeys["shift"],self.modkeys["alt"],
+                                               self.modkeys["ctrl"],self.modkeys["ext"]))
+        return self.scancode(fk, nomod=nomod)
 
     def all_modkeys_off(self) -> bool:
         return not (self.modkeys["shift"] or self.modkeys["alt"] or \
@@ -526,23 +542,6 @@ class KbdDevice():
             self.last_write=nwd
             self.devicefd.write(self.last_write)
             self.devicefd.flush()
-
-    def inkey_fkey(self, kn):
-        fktable=self.config.fkeytable[int(kn)]
-        nomod=False
-        for mn in KbdConfig.mnames:
-            if self.modkeys[mn]:
-                fk=fktable["mfuncs"][mn]
-                if fk:
-                    nomod=True
-                    break
-        else:
-            fk=fktable["func"]
-        if not fk: return None
-        logger.debug("press %s,%d,%d,%d,%d" % (fk,
-                                               self.modkeys["shift"],self.modkeys["alt"],
-                                               self.modkeys["ctrl"],self.modkeys["ext"]))
-        return self.scancode(fk, nomod=nomod)
 
 if __name__ == '__main__':
     kbd = KbdDevice()
