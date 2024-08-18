@@ -296,6 +296,7 @@ class KbdDevice():
         self.multikey_timer=None
         tsns=time.time_ns()
         self.keyqueue.append((bt,tsns))
+        self.leds["LED1"].on()
         if self.proc_keyqueue(): return
         self.multikey_timer=threading.Timer(KbdDevice.MULTIKEY_GAP_NS/1E9,
                                             self.proc_multikey_timer)
@@ -418,7 +419,7 @@ class KbdDevice():
             self.modkeys_lock[kname]=False
             return
         self.modkeys_lock[kname]=True
-        self.leds["LED1"].on()
+        self.leds["LED2"].on()
         self.modkeys[kname]=True
         self.hidevent_pressed(kname, "mod")
 
@@ -505,7 +506,7 @@ class KbdDevice():
                 self.modkeys_lock[btv["kname"]]=False
                 if not bt.is_pressed:
                     self.modkeys[btv["kname"]]=False
-                    if self.all_modkeys_off(): self.leds["LED1"].off()
+                    if self.all_modkeys_off(): self.leds["LED2"].off()
 
     def on_released(self, bt) -> None:
         kname=self.buttons[bt]["kname"]
@@ -517,7 +518,7 @@ class KbdDevice():
             if self.modkeys_lock[kname]: return
             self.modkeys_unlock()
             self.modkeys[kname]=False
-            if self.all_modkeys_off(): self.leds["LED1"].off()
+            if self.all_modkeys_off(): self.leds["LED2"].off()
             return self.clear_devicefd()
         if kname[0]=="k":
             # release a regular key
@@ -536,6 +537,8 @@ class KbdDevice():
                 return
 
     def clear_devicefd(self):
+        if len(self.keyqueue)==0:
+            self.leds["LED1"].off()
         scode=bytearray(b"\0\0\0\0\0\0\0\0")
         inkey_m=self.scancode('')
         scode[0]=inkey_m[1]
