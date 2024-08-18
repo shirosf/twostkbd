@@ -18,9 +18,12 @@
 # <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>.
 #
 import logging
-from gpiozero import Button, LED
 import time
 import threading
+try:
+    from gpiozero import Button, LED
+except:
+    print("not running on PiZero")
 
 logger=logging.getLogger('twostkbd')
 logger.setLevel(logging.DEBUG)
