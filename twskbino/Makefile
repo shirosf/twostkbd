@@ -13,7 +13,10 @@ LIBDIR:=$(HOME)/Arduino/libraries
 ADEV:=/dev/ttyACM0
 BDIR:=$(THISDIR)/build
 
-compile:
-	$(CLI) compile --fqbn $(FBQN) --build-path $(BDIR) $(SKETCH).ino
-install: compile
+all: $(BDIR)/$(SKETCH).ino.elf
+
+$(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino fifo_queue.cpp fifo_queue.h
+	$(CLI) compile --fqbn $(FBQN) --build-path $(BDIR) $(THISDIR)
+
+install: $(BDIR)/$(SKETCH).ino.elf
 	$(CLI) upload -p $(ADEV) --fqbn $(FBQN) --input-dir $(BDIR) $(SKETCH)
