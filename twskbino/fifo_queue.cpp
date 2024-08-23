@@ -19,7 +19,7 @@ key_fifo_data_t *KeyFifo::popkd(unsigned long ctsms, int gapms)
 {
 	key_fifo_data_t *kd;
 	if(outp==inp){return NULL;}
-	if((ctsms - kd[(inp-1)&FIFO_MAX_DEPTH_MASK].tsms) < gapms){return NULL;}
+	if((ctsms - kds[(inp-1)&FIFO_MAX_DEPTH_MASK].tsms) < gapms){return NULL;}
 	kd=&kds[outp++];
 	outp&=FIFO_MAX_DEPTH_MASK;
 	return kd;

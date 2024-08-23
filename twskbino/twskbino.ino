@@ -5,6 +5,7 @@
 #define LED_GREEN 0
 #define LED_BLUE 45
 #define BOUNCE_GURD_MS 10
+#define KEY_PROC_GAP_MS 100
 
 #ifndef ARDUINO_USB_MODE
 #error This ESP32 SoC has no Native USB interface
@@ -40,6 +41,7 @@ private:
 	unsigned long gpd_current;
 	unsigned long gpd_trans;
 	unsigned long *gpdp=(unsigned long *)GPIO_IN_REG;
+	KeyFifo kfifo;
 
 	void on_change(byte ki, bool kon)
 	{
@@ -54,10 +56,56 @@ private:
 		Keyboard.print(pbuf);
 	}
 
+	int keyscan_push(unsigned long tsms)
+	{
+		// read the pushbutton:
+		unsigned long ugpd, ngpd, mb;
+		int i;
+		bool non, con;
+		key_fifo_data_t kd;
+		int res=0;
+
+		ngpd=*gpdp & keys_mask;
+		ugpd=gpd^ngpd; // changed bits in ugpd
+		mb=1;
+		for(i=0;i<32;i++){
+			if(keybit_index[i]==0xff){continue;}
+			kd.ki=keybit_index[i];
+			if(ugpd & mb){
+				con=(gpd_current & mb) == 0; // current on state
+				non=(ngpd & mb) == 0; // new on state
+				if(con==non){
+					// on->on, off->off, it must be a glitch
+					gpd_trans &= ~mb;
+				}else{
+					// new change, set a transition bit
+					gpd_trans |= mb;
+					keytrans_ms[kd.ki]=tsms;
+				}
+			}else{
+				// the bit has no change, check the transition timer
+				if((gpd_trans & mb) &&
+				   (keytrans_ms[kd.ki]+BOUNCE_GURD_MS < tsms)){
+					// transition timer expired, push 'kd' into the fifo
+					gpd_current ^= mb;
+					gpd_trans &= ~mb;
+					kd.tsms=tsms;
+					kd.pressed=(gpd_current & mb) == 0;
+					kfifo.pushkd(&kd);
+					res+=1;
+				}
+			}
+			mb = mb << 1;
+		}
+		gpd=ngpd;
+		return res;
+	}
+
 public:
 	Twskbd(void)
 	{
 		int i;
+		memset(keybit_index, 0xff, sizeof(keybit_index));
 		for(i=0;i<sizeof(key_gpios);i++){
 			pinMode(key_gpios[i], INPUT_PULLUP);
 			keys_mask|=(1<<key_gpios[i]);
@@ -70,46 +118,21 @@ public:
 		USB.begin();
 	}
 
-
 	void main_loop(void)
 	{
-		// read the pushbutton:
-		char pbuf[16];
-		unsigned long ugpd, ngpd, mb, tms;
-		int i;
-		bool non, con;
-
-		ngpd=*gpdp & keys_mask;
-		tms=millis();
-		ugpd=gpd^ngpd;
-		mb=1;
-		for(i=0;i<32;i++){
-			if(ugpd & mb){
-				con=(gpd_current & mb) == 0;
-				non=(ngpd & mb) == 0;
-				if(con==non){
-					gpd_trans &= ~mb;
-				}else{
-					gpd_trans |= mb;
-					keytrans_ms[keybit_index[i]]=tms;
-				}
-			}else{
-				if((gpd_trans & mb) &&
-				   (keytrans_ms[keybit_index[i]]+BOUNCE_GURD_MS < tms)){
-					gpd_current ^= mb;
-					gpd_trans &= ~mb;
-					on_change(keybit_index[i], (gpd_current & mb) == 0);
-				}
-			}
-			mb = mb << 1;
-		}
-		gpd=ngpd;
+		key_fifo_data_t *kd;
+		unsigned long tsms=millis();
+		if(keyscan_push(tsms)>0){return;}
+		kd=kfifo.popkd(tsms, KEY_PROC_GAP_MS);
+		if(kd==NULL){return;}
+		on_change(kd->ki, kd->pressed);
 	}
 };
 
 Twskbd *twkd;
 
-void setup() {
+void setup()
+{
 	int i;
 	pinMode(LED_RED, OUTPUT);
 	pinMode(LED_GREEN, OUTPUT);
@@ -118,7 +141,9 @@ void setup() {
 	twkd=new(Twskbd);
 }
 
-void loop() {
+void loop()
+{
 	twkd->main_loop();
 }
+
 #endif
