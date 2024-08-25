@@ -369,9 +369,12 @@ class KbdDevice():
             return 0
         # check with multikeystable
         mkbits=0
+        skip_zero=self.keyqueue[1][1]-self.keyqueue[0][1] > \
+            KbdDevice.MULTIKEY_GAP_NS
         for i,(bt,tsns) in enumerate(self.keyqueue):
             if i==ki: break
             if bt==None: continue
+            if i==0 and skip_zero: continue
             kname=self.buttons[bt]["kname"]
             kbit=1<<self.config.btgpios[kname]
             if ki==2 and mkbits==kbit:
@@ -380,7 +383,9 @@ class KbdDevice():
             mkbits|=kbit
         for mkv in self.config.multikeystable.keys():
             if exact:
-                if mkv == mkbits: return mkv
+                if mkv == mkbits:
+                    if skip_zero: self.keyqueue.pop(0)
+                    return mkv
             else:
                 if (mkbits & mkv) == mkbits: return 1
         return 0
@@ -533,11 +538,13 @@ class KbdDevice():
     def clear_multikey_in_queue(self, kname) -> None:
         for (bt,tsns) in self.keyqueue:
             qkname=self.buttons[bt]["kname"]
-            if kname==qkname:
-                self.keyqueue.remove((bt,tsns))
-                mkbit=1<<self.config.btgpios[kname]
-                self.multikey_pressedv&=~mkbit
-                return
+            if kname!=qkname: continue
+            self.keyqueue.remove((bt,tsns))
+            mkbit=1<<self.config.btgpios[kname]
+            self.multikey_pressedv&=~mkbit
+            if self.multikey_pressedv==0:
+                self.modkeys_unlock()
+            return
 
     def clear_devicefd(self):
         if len(self.keyqueue)==0:
