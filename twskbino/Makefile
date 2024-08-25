@@ -12,11 +12,17 @@ CLI:=arduino-cli
 LIBDIR:=$(HOME)/Arduino/libraries
 ADEV:=/dev/ttyACM0
 BDIR:=$(THISDIR)/build
+SOURCES:=fifo_queue.cpp twskb.cpp
+HEADERS:=$(patsubst %.cpp,%.hpp,$(SOURCES))
 
-all: $(BDIR)/$(SKETCH).ino.elf
+all: twskbpc
 
-$(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino fifo_queue.cpp fifo_queue.hpp twskb.cpp \
-twskb.hpp
+twskbpc: $(SOURCES) $(HEADERS) twskbpc.cpp
+	g++ -Wall -o $@ $(SOURCES) twskbpc.cpp
+
+abuild: $(BDIR)/$(SKETCH).ino.elf
+
+$(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino $(SOURCES) $(HEADERS)
 	$(CLI) compile --fqbn $(FBQN) --build-path $(BDIR) $(THISDIR)
 
 install: $(BDIR)/$(SKETCH).ino.elf

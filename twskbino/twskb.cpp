@@ -7,9 +7,7 @@
 int Twskbd::keyscan_push(unsigned long tsms)
 {
 	// read the pushbutton:
-	unsigned long ugpd, ngpd, mb;
 	int i;
-	bool non, con;
 	KeyFifo::key_fifo_data_t kd;
 	int res=0;
 
