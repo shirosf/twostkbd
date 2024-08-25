@@ -1,4 +1,5 @@
-#include "fifo_queue.h"
+#include <string.h>
+#include "fifo_queue.hpp"
 
 KeyFifo::KeyFifo(void) : inp(0), outp(0)
 {
@@ -15,7 +16,7 @@ void KeyFifo::pushkd(key_fifo_data_t *kd)
 	inp&=FIFO_MAX_DEPTH_MASK;
 }
 
-key_fifo_data_t *KeyFifo::popkd(unsigned long ctsms, int gapms)
+KeyFifo::key_fifo_data_t *KeyFifo::popkd(unsigned long ctsms, int gapms)
 {
 	key_fifo_data_t *kd;
 	if(outp==inp){return NULL;}
@@ -25,7 +26,7 @@ key_fifo_data_t *KeyFifo::popkd(unsigned long ctsms, int gapms)
 	return kd;
 }
 
-key_fifo_data_t *KeyFifo::peekd(int n)
+KeyFifo::key_fifo_data_t *KeyFifo::peekd(int n)
 {
 	if(ninfifo()<n){return NULL;}
 	return &kds[(outp+n)&FIFO_MAX_DEPTH_MASK];

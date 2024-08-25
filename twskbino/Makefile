@@ -15,7 +15,8 @@ BDIR:=$(THISDIR)/build
 
 all: $(BDIR)/$(SKETCH).ino.elf
 
-$(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino fifo_queue.cpp fifo_queue.h
+$(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino fifo_queue.cpp fifo_queue.hpp twskb.cpp \
+twskb.hpp
 	$(CLI) compile --fqbn $(FBQN) --build-path $(BDIR) $(THISDIR)
 
 install: $(BDIR)/$(SKETCH).ino.elf
