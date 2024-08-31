@@ -1,6 +1,8 @@
 #ifndef FIFO_QUEUE_H_
 #define FIFO_QUEUE_H_
 
+#include <inttypes.h>
+
 #define FIFO_MAX_DEPTH 16
 #define FIFO_MAX_DEPTH_MASK (FIFO_MAX_DEPTH-1)
 
@@ -31,16 +33,25 @@ public:
 	} key_fifo_data_t;
 
 	KeyFifo(void);
-	int ninfifo(void);
-	void push_kdata(key_fifo_data_t *kd);
-	void pushkd(key_fifo_data_t *kd);
-	key_fifo_data_t *popkd(unsigned long ctsms, int gapms);
-	key_fifo_data_t *peekd(int n);
+	int ninfifo(int8_t t);
+	int increadp(void);
+	int pushkd(key_fifo_data_t *kd);
+	int delkd(int8_t t, int n);
+	key_fifo_data_t *peekd(int8_t t, int n, unsigned long ctsms, int gapms);
 
 private:
-	unsigned char inp;
-	unsigned char outp;
-	key_fifo_data_t kds[FIFO_MAX_DEPTH];
+	typedef struct fq_data {
+		key_fifo_data_t kd;
+		int8_t next;
+		bool busy;
+	} fq_data_t;
+
+	int8_t headp;
+	int8_t btmp;
+	int8_t readp;
+	fq_data_t fqds[FIFO_MAX_DEPTH];
+
+	int8_t getbuf(void);
 
 };
 #endif

@@ -1,8 +1,9 @@
 #include <string.h>
+#include <stdio.h>
 #include "twskb.hpp"
 
 #define BOUNCE_GURD_MS 10
-#define KEY_PROC_GAP_MS 100
+#define KEY_PROC_GAP_MS 50
 
 int Twskbd::keyscan_push(unsigned long tsms)
 {
@@ -53,7 +54,9 @@ void Twskbd::main_loop(unsigned long tsms)
 {
 	KeyFifo::key_fifo_data_t *kd;
 	if(keyscan_push(tsms)>0){return;}
-	kd=kfifo.popkd(tsms, KEY_PROC_GAP_MS);
+	kd=kfifo.peekd('r', 0, tsms, KEY_PROC_GAP_MS);
 	if(kd==NULL){return;}
 	kbdio.print_kd(kd);
+	kfifo.increadp();
+	kfifo.delkd('h', 0);
 }
