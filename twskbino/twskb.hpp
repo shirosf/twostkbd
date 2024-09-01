@@ -3,6 +3,20 @@
 
 #include "fifo_queue.hpp"
 
+enum {
+	LOGL_ERROR,
+	LOGL_WARN,
+	LOGL_INFO,
+	LOGL_DEBUG,
+	LOGL_DEBUGV,
+};
+
+#ifdef LOGGING_LEVEL
+#define LOG_PRINT(level, ...) if(level<=LOGGING_LEVEL){printf(__VA_ARGS__);}
+#else
+#define LOG_PRINT(level, ...)
+#endif
+
 struct kbdio_data;
 
 class KbdInOut
@@ -36,8 +50,17 @@ private:
 	bool gpd_trans[13];
 	KeyFifo kfifo;
 	KbdInOut kbdio;
+	bool inproc;
 
 	int keyscan_push(unsigned long tsms);
+	int on_pressed(KeyFifo::key_fifo_data_t *kd);
+	int on_released(KeyFifo::key_fifo_data_t *kd);
+	int proc_func(KeyFifo::key_indexmap_t ki);
+	int proc_mod(KeyFifo::key_indexmap_t ki);
+	int proc_reg(KeyFifo::key_indexmap_t ki0, KeyFifo::key_indexmap_t ki1);
+	int proc_multi(unsigned int mkb);
+	unsigned int multikey_bits(KeyFifo::key_fifo_data_t *kds[], int n);
+	void clean_locked_status(void);
 
 public:
 	Twskbd(void);

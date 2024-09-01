@@ -18,7 +18,7 @@ HEADERS:=$(patsubst %.cpp,%.hpp,$(SOURCES))
 all: twskbpc
 
 twskbpc: $(SOURCES) $(HEADERS) twskbpc.cpp
-	g++ -Wall -o $@ $(SOURCES) twskbpc.cpp
+	g++ -Wall -DLOGGING_LEVEL=LOGL_DEBUG -o $@ $(SOURCES) twskbpc.cpp
 
 abuild: $(BDIR)/$(SKETCH).ino.elf
 

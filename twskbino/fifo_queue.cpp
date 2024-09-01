@@ -1,6 +1,18 @@
+/*
+ * one directional link liss
+ * ----------------------------
+ *  ^       ^        ^
+ *  headp   readp    btmp
+ *
+ *  push kd at 'btmp'
+ *  'readp' is a read point, 'increadp' moves 'readp' one point to
+ *  'btmp' direction.
+ *  Data between 'headp' and 'readp' is hold until removed by 'delkn'.
+ */
 #include <string.h>
 #include <stdio.h>
 #include "fifo_queue.hpp"
+#include "twskb.hpp"
 
 #define GET_TYPE_SPP(t) (t=='r')?&readp:&headp
 #define GET_NEXT_EP(t) (t=='h')?readp:-1; // next of end point
@@ -26,18 +38,29 @@ int8_t KeyFifo::getbuf(void)
 	return -1;
 }
 
-int KeyFifo::ninfifo(int8_t t)
+int KeyFifo::ninfifo(int8_t t, bool pressed)
 {
 	int8_t *sp;
 	int8_t nep;
 	fq_data_t *fqd;
 	int i;
+	int count;
 	sp=GET_TYPE_SPP(t);
-	if(*sp==-1){return 0;}
 	nep=GET_NEXT_EP(t);
+	if(*sp==nep){return 0;}
 	fqd=&fqds[*sp];
+	count=0;
 	for(i=0;i<FIFO_MAX_DEPTH;i++){
-		if(fqd->next==nep){return i+1;}
+		if(fqd->kd.pressed){count++;}
+		if(fqd->next==nep){
+			if(pressed){return count;}
+			return i+1;
+		}
+		if(fqd->next==-1){
+			LOG_PRINT(LOGL_ERROR, "%s:%c,corrupted, hp=%d, rp=%d, bp=%d, nep=%d\n",
+				  __func__, t, headp, readp, btmp, nep);
+			return 0;
+		}
 		fqd=&fqds[fqd->next];
 	}
 	return 0;
@@ -48,6 +71,20 @@ int KeyFifo::increadp(void)
 	if(readp==-1){return -1;}
 	readp=fqds[readp].next;
 	return 0;
+}
+
+int KeyFifo::increadp(key_fifo_data_t *kd)
+{
+	int8_t np=readp;
+	while(np!=-1){
+		if((fqds[np].kd.ki==kd->ki) && (fqds[np].kd.pressed==kd->pressed)){
+			readp=fqds[np].next;
+			LOG_PRINT(LOGL_DEBUGV, "%s:readp=%d\n", __func__, readp);
+			return 0;
+		}
+		np=fqds[np].next;
+	}
+	return -1;
 }
 
 int KeyFifo::pushkd(key_fifo_data_t *kd)
@@ -65,56 +102,127 @@ int KeyFifo::pushkd(key_fifo_data_t *kd)
 	return 0;
 }
 
-int KeyFifo::delkd(int8_t t, int n)
+int KeyFifo::delkn(int8_t t, int n)
 {
 	int8_t *sp;
 	int8_t np, nep, pp1, pp2;
-	int i;
+	int count=-1;
 	sp=GET_TYPE_SPP(t);
 	nep=GET_NEXT_EP(t);
-	np=*sp;
+	np=headp;
 	pp1=-1;
 	pp2=-1;
-	for(i=0;i<=n;i++){
+	while(np!=-1){
 		if(np==nep){return -1;}
+		if(np==*sp){count=0;}
 		pp2=pp1;
 		pp1=np;
 		np=fqds[np].next;
+		if(count>=0){
+			if(count==n){break;}
+			count++;
+		}
 	}
-	if(pp2==-1){
-		// n==0
+	if(count!=n){return -1;}
+	if(n==0){
 		if(headp==readp){headp=np;}
 		*sp=np;
-	}else{
+	}
+	if(pp2!=-1){
 		fqds[pp2].next=np;
 	}
-	if(np==-1){
+	if(pp1==-1){
+		LOG_PRINT(LOGL_ERROR, "%s:%c,corrupted, hp=%d, rp=%d, bp=%d, nep=%d\n",
+			  __func__, t, headp, readp, btmp, nep);
+		return -1;
+	}
+	if(btmp==pp1){
 		btmp=pp2;
 	}
 	fqds[pp1].busy=false;
-	nep=GET_NEXT_EP(t);
+	LOG_PRINT(LOGL_DEBUGV, "%s:%c, n=%d, hp=%d, rp=%d, bp=%d deleted=%d\n", __func__,
+		  t, n, headp, readp, btmp, pp1);
 	return 0;
 }
 
-KeyFifo::key_fifo_data_t *KeyFifo::peekd(int8_t t, int n, unsigned long ctsms, int gapms)
+int KeyFifo::delkd(key_fifo_data_t *kd)
+{
+	int8_t n=0;
+	int8_t np=headp;
+	int8_t hn=ninfifo('h', false);
+	while(np!=-1){
+		if((fqds[np].kd.ki==kd->ki) && (fqds[np].kd.pressed==kd->pressed)){
+			if(n<hn){return delkn('h', n);}
+			return delkn('r', n-hn);
+		}
+		n++;
+		np=fqds[np].next;
+	}
+	return -1;
+}
+
+KeyFifo::key_fifo_data_t *KeyFifo::peekd(int8_t t, int n, unsigned long ctsms,
+					 int gapms, int evtype)
 {
 	fq_data_t *fqd;
 	int8_t *sp;
 	int8_t nep;
 	int i;
+	int count=0;
 
 	sp=GET_TYPE_SPP(t);
-	if(*sp==-1){return NULL;}
 	nep=GET_NEXT_EP(t);
+	if(*sp==nep){return NULL;}
 
 	if(btmp==-1){return NULL;}
-	if((ctsms - fqds[btmp].kd.tsms) < (unsigned long)gapms){
+	if((gapms!=0) &&
+	   ((ctsms - fqds[btmp].kd.tsms) < (unsigned long)gapms)){
 		return NULL;
 	}
 	fqd=&fqds[*sp];
-	for(i=0;i<n;i++){
+	if(evtype==1){
+		count=fqd->kd.pressed?0:-1;
+	}else if(evtype==-1){
+		count=fqd->kd.pressed?-1:0;
+	}
+	i=0;
+	while(true){
+		if(evtype!=0){
+			if(count==n){break;}
+		}else{
+			if(i==n){break;}
+		}
 		if(fqd->next==nep){return NULL;}
+		if(fqd->next==-1){
+			LOG_PRINT(LOGL_ERROR, "%s:fifo corrupted\n", __func__);
+			return NULL;
+		}
 		fqd=&fqds[fqd->next];
+		i++;
+		if(evtype==1){
+			if(fqd->kd.pressed){count++;}
+		}else if(evtype==-1){
+			if(!fqd->kd.pressed){count++;}
+		}
 	}
 	return &fqd->kd;
+}
+
+int KeyFifo::findkd(int8_t t, key_indexmap_t ki, bool pressed)
+{
+	int8_t *sp;
+	int8_t np, nep;
+	int n=0;
+	sp=GET_TYPE_SPP(t);
+	np=*sp;
+	nep=GET_NEXT_EP(t);
+	if(*sp==nep){return -1;}
+	while(np!=nep){
+		if((fqds[np].kd.ki==ki) && (fqds[np].kd.pressed==pressed)){
+			return n;
+		}
+		np=fqds[np].next;
+		n++;
+	}
+	return -1;
 }
