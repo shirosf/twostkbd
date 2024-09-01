@@ -15,12 +15,7 @@ BDIR:=$(THISDIR)/build
 SOURCES:=fifo_queue.cpp twskb.cpp
 HEADERS:=$(patsubst %.cpp,%.hpp,$(SOURCES))
 
-all: twskbpc
-
-twskbpc: $(SOURCES) $(HEADERS) twskbpc.cpp
-	g++ -Wall -DLOGGING_LEVEL=LOGL_DEBUG -o $@ $(SOURCES) twskbpc.cpp
-
-abuild: $(BDIR)/$(SKETCH).ino.elf
+all: $(BDIR)/$(SKETCH).ino.elf
 
 $(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino $(SOURCES) $(HEADERS)
 	$(CLI) compile --fqbn $(FBQN) --build-path $(BDIR) $(THISDIR)
