@@ -133,6 +133,20 @@ bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 	return false;
 }
 
+void KbdInOut::key_press(char x)
+{
+	Keyboard.press(x);
+}
+
+void KbdInOut::key_release(char x)
+{
+	Keyboard.release(x);
+}
+
+void KbdInOut::key_releaseAll(void)
+{
+	Keyboard.releaseAll();
+}
 
 
 void setup()

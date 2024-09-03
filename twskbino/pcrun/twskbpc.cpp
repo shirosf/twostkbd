@@ -37,28 +37,28 @@ void KbdInOut::set_rgb_led(rgb_color_index_t ci)
 {
 	switch(ci){
 	case RGB_COLOR_BLACK:
-		printf("BLACK\n");
+		LOG_PRINT(LOGL_DEBUGV, "BLACK\n");
 		return;
 	case RGB_COLOR_RED:
-		printf("RED\n");
+		LOG_PRINT(LOGL_DEBUGV, "RED\n");
 		return;
 	case RGB_COLOR_GREEN:
-		printf("GREEN\n");
+		LOG_PRINT(LOGL_DEBUGV, "GREEN\n");
 		return;
 	case RGB_COLOR_BLUE:
-		printf("BLUE\n");
+		LOG_PRINT(LOGL_DEBUGV, "BLUE\n");
 		return;
 	case RGB_COLOR_YELLOW:
-		printf("YELLOW\n");
+		LOG_PRINT(LOGL_DEBUGV, "YELLOW\n");
 		return;
 	case RGB_COLOR_CYAN:
-		printf("CYAN\n");
+		LOG_PRINT(LOGL_DEBUGV, "CYAN\n");
 		return;
 	case RGB_COLOR_MAGENTA:
-		printf("MAGENTA\n");
+		LOG_PRINT(LOGL_DEBUGV, "MAGENTA\n");
 		return;
 	case RGB_COLOR_WHITE:
-		printf("WHITE\n");
+		LOG_PRINT(LOGL_DEBUGV, "WHITE\n");
 		return;
 	}
 
@@ -95,6 +95,23 @@ bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 	kbdiod->prev_state[*ki]=!kbdiod->prev_state[*ki];
 	*pressed=kbdiod->prev_state[*ki];
 	return true;
+}
+
+void KbdInOut::key_press(char x)
+{
+	if(x>=' '){
+		printf("%c\n", x);
+	}else{
+		printf("0x%02X\n", x);
+	}
+}
+
+void KbdInOut::key_release(char x)
+{
+}
+
+void KbdInOut::key_releaseAll(void)
+{
 }
 
 static void sighandler(int signo)

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "twskb.hpp"
+#include "kbdconfig.hpp"
 
 #define BOUNCE_GURD_MS 10
 #define KEY_PROC_GAP_MS 50
@@ -45,8 +46,6 @@ int Twskbd::keyscan_push(unsigned long tsms)
 
 Twskbd::Twskbd(void)
 {
-	memset(gpd_current, 0, sizeof(gpd_current));
-	memset(gpd_trans, 0, sizeof(gpd_trans));
 	kbdio.set_rgb_led(kbdio.RGB_COLOR_GREEN);
 }
 
@@ -64,8 +63,22 @@ int Twskbd::proc_mod(KeyFifo::key_indexmap_t ki)
 
 int Twskbd::proc_reg(KeyFifo::key_indexmap_t ki0, KeyFifo::key_indexmap_t ki1)
 {
-	LOG_PRINT(LOGL_DEBUG, "%s:ki0=%d, ki1=%d\n", __func__, ki0, ki1);
-	return 0;
+	int i;
+	uint8_t d=0;
+	LOG_PRINT(LOGL_DEBUGV, "%s:ki0=%d, ki1=%d\n", __func__, ki0, ki1);
+	for(i=0;i<MODKEY_END;i++){
+		if(modkey_state[i] || modkey_locked[i]){
+			d=skey_table[ki0*6+ki1].mks[i];
+			if(d!=0){break;}
+		}
+	}
+	if(d!=0){
+		kbdio.key_press(d);
+	}else{
+		d=skey_table[ki0*6+ki1].rk;
+		kbdio.key_press(d);
+	}
+	return d;
 }
 
 int Twskbd::proc_multi(unsigned int mkb)
@@ -108,8 +121,7 @@ int Twskbd::on_pressed(KeyFifo::key_fifo_data_t *kd)
 	if(ninf==2){
 		if(inproc || (gapms>KEY_PROC_GAP_MS) ||
 		   (multikey_bits(kds, 2)==0)){
-			proc_reg(kds[0]->ki, kds[1]->ki);
-			inproc=true;
+			inproc=proc_reg(kds[0]->ki, kds[1]->ki);
 			kfifo.delkd(kds[0]);
 			kfifo.increadp(kds[1]);
 			return 0;
@@ -121,8 +133,7 @@ int Twskbd::on_pressed(KeyFifo::key_fifo_data_t *kd)
 		mkb=multikey_bits(kds, 3);
 		if(inproc || (mkb==0)){
 			if(gapms>KEY_PROC_GAP_MS){
-				proc_reg(kds[0]->ki, kds[1]->ki);
-				inproc=true;
+				inproc=proc_reg(kds[0]->ki, kds[1]->ki);
 				kfifo.delkd(kds[0]);
 				kfifo.increadp(kds[1]);
 				return 0;
@@ -132,8 +143,7 @@ int Twskbd::on_pressed(KeyFifo::key_fifo_data_t *kd)
 			clean_locked_status();
 			return 0;
 		}
-		proc_multi(mkb);
-		inproc=true;
+		inproc=proc_multi(mkb);
 		kfifo.increadp(kds[2]);
 		return 0;
 	}
@@ -144,8 +154,7 @@ int Twskbd::on_pressed(KeyFifo::key_fifo_data_t *kd)
 		clean_locked_status();
 		return 0;
 	}
-	proc_multi(mkb);
-	inproc=true;
+	inproc=proc_multi(mkb);
 	kfifo.increadp(kds[3]);
 	return 0;
 }
@@ -161,6 +170,10 @@ int Twskbd::on_released(KeyFifo::key_fifo_data_t *kd)
 	}
 	kfifo.delkn('h', n);
 	kfifo.delkd(kd);
+	if(inproc){
+		kbdio.key_release(inproc);
+		inproc=0;
+	}
 	LOG_PRINT(LOGL_DEBUG, "%s:head=%d, read=%d\n", __func__,
 		  kfifo.ninfifo('h', false),  kfifo.ninfifo('r', false));
 	return 0;
