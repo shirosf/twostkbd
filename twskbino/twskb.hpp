@@ -43,8 +43,9 @@ public:
 	bool get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed);
 	void print_kd(KeyFifo::key_fifo_data_t *kd);
 	void set_rgb_led(rgb_color_index_t ci);
-	void key_press(char x);
-	void key_release(char x);
+	void set_bit_led(rgb_color_index_t ci, bool ledon);
+	void key_press(uint8_t x);
+	void key_release(uint8_t x);
 	void key_releaseAll(void);
 };
 
@@ -56,19 +57,25 @@ private:
 	bool gpd_trans[13]={false};
 	KeyFifo kfifo;
 	KbdInOut kbdio;
-	int inproc;
+	int inproc=0;
+	int inseq=0;
 	bool modkey_state[MODKEY_END]={false};
 	bool modkey_locked[MODKEY_END]={false};
+	KeyFifo::key_indexmap_t last_pressedki;
 
 	int keyscan_push(unsigned long tsms);
-	int on_pressed(KeyFifo::key_fifo_data_t *kd);
+	int on_pressed(KeyFifo::key_fifo_data_t *kd, bool onrel);
 	int on_released(KeyFifo::key_fifo_data_t *kd);
 	int proc_func(KeyFifo::key_indexmap_t ki);
 	int proc_mod(KeyFifo::key_indexmap_t ki);
 	int proc_reg(KeyFifo::key_indexmap_t ki0, KeyFifo::key_indexmap_t ki1);
 	int proc_multi(unsigned int mkb);
-	unsigned int multikey_bits(KeyFifo::key_fifo_data_t *kds[], int n);
+	unsigned int multikey_bits(KeyFifo::key_fifo_data_t *kds[], int n,
+				   unsigned int mb);
 	void clean_locked_status(void);
+	int get_mod_enum(KeyFifo::key_indexmap_t ki);
+	uint8_t get_mod_keycode(modkey_enum_t mi);
+	int proc_hmkb(KeyFifo::key_fifo_data_t *kds[], int n);
 
 public:
 	Twskbd(void);

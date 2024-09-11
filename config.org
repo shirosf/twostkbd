@@ -94,4 +94,3 @@
 | ALTX   | f1,f2,k3    |
 | CTL/   | k0,k1,k2,f3 |
 |--------+-------------|
-Don't use modifier keys(shift,alt,ctrl,ext).

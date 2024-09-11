@@ -31,6 +31,18 @@ class ArduinoKbdConfig(KbdConfig):
     KeyGpio={"k0":5, "k1":6, "k2":7, "k3":8, "k4":9, "k5":10,
              "f1":17, "f2":18, "f3":21,
              "alt":1, "ctrl":2, "shift":3, "ext":4}
+    KeyCode={"BS":"BACKSPACE", "SP":"SPACE", "RET":"RETURN",
+             "LEFT":"LEFT_ARROW",
+             "RIGHT":"RIGHT_ARROW",
+             "UP":"UP_ARROW",
+             "DOWN":"DOWN_ARROW",
+             "PUP":"PAGE_UP",
+             "PDOWN":"PAGE_DOWN",
+             }
+    KeySeq={"CHOME","CEND","CLEFT","CRIGHT","CTLG",
+             "CTLC","CTLX","ALTX","CTL_SLASH",
+            }
+
 
 class PrintHeader():
     def __init__(self, kbdconfig, outfd=sys.stdout):
@@ -45,6 +57,9 @@ class PrintHeader():
         self.outfd.write("#ifndef %s_H_\n" % fname.upper())
         self.outfd.write("#define %s_H_\n" % fname.upper())
         self.outfd.write("\n")
+        self.outfd.write("#ifndef PCRUN_MODE\n")
+        self.outfd.write("#include \"USBHIDKeyboard.h\"\n")
+        self.outfd.write("#endif\n")
 
     def file_bottom(self):
         self.outfd.write("\n")
@@ -59,22 +74,40 @@ class PrintHeader():
         self.outfd.write("\n")
         self.outfd.write('''
 typedef enum {
-	MODKEY_S=0,
-	MODKEY_A,
+	MODKEY_A=0,
 	MODKEY_C,
+	MODKEY_S,
 	MODKEY_E,
 	MODKEY_END,
-} modkey_bit_t;
+} modkey_enum_t;
 ''')
-
+        self.outfd.write("\n")
 
 
     def keycode_enum(self, symbols):
+        self.outfd.write("#ifdef PCRUN_MODE\n")
         self.outfd.write("enum {\n")
-        for s in symbols:
-            self.outfd.write("\t%s,\n" % s)
+        for i,s in enumerate(symbols):
+            self.outfd.write("\t%s, // %d\n" % (s, i))
         self.outfd.write("};\n")
         self.outfd.write("\n")
+        self.outfd.write("#else\n")
+        for s in symbols:
+            d=s.replace("KEYCODE_", "")
+            if d in ArduinoKbdConfig.KeyCode:
+                d="KEY_" + ArduinoKbdConfig.KeyCode[d]
+            elif d in ArduinoKbdConfig.KeySeq:
+                d="KEYSEQ_" + d
+            elif d!="0": d="KEY_" + d
+            self.outfd.write("#define %s %s\n" % (s, d))
+        self.outfd.write("\n")
+        self.outfd.write("enum {\n")
+        self.outfd.write("\tKEYSEQ_START=0x100,\n")
+        for s in ArduinoKbdConfig.KeySeq:
+            self.outfd.write("\tKEYSEQ_%s,\n" % s)
+        self.outfd.write("};\n")
+        self.outfd.write("\n")
+        self.outfd.write("#endif\n")
 
     def data_struct(self):
         self.outfd.write("typedef struct regk_data{\n")
@@ -83,6 +116,8 @@ typedef enum {
         self.outfd.write("} regk_data_t;\n")
         self.outfd.write("\n")
         self.outfd.write("extern regk_data_t skey_table[];\n")
+        self.outfd.write("extern regk_data_t fkey_table[];\n")
+        self.outfd.write("extern uint16_t mkey_table[][2];\n")
         self.outfd.write("\n")
 
 class PrintSource():
@@ -90,7 +125,8 @@ class PrintSource():
         self.outfd=outfd
         self.kbdconfig=kbdconfig
         self.kbdconfig.skeytable.sort(key=lambda x: (x["1st"], x["2nd"]))
-        self.keycode_symbols=["KEYCODE_0",]
+        self.keycode_symbols=["KEYCODE_0", "KEYCODE_LEFT_ALT",
+                              "KEYCODE_LEFT_CTRL", "KEYCODE_LEFT_SHIFT"]
 
     def file_head(self):
         self.outfd.write("/*\n")
@@ -100,6 +136,7 @@ class PrintSource():
         self.outfd.write("\n")
         self.outfd.write("#include <inttypes.h>\n")
         self.outfd.write("#include \"kbdconfig.hpp\"\n")
+        self.outfd.write("#include \"fifo_queue.hpp\"\n")
 
     def key_tables(self):
         self.outfd.write("regk_data_t skey_table[]={\n")
@@ -125,8 +162,46 @@ class PrintSource():
             self.outfd.write("\t{'%s',{%s,%s,%s,%s}},\n" % (
                 td["key"], m["shift"], m["alt"], m["ctrl"], m["ext"]))
         self.outfd.write("};\n")
+        self.outfd.write("\n")
 
+    def fkey_tables(self):
+        self.outfd.write("regk_data_t fkey_table[]={\n")
+        for td in self.kbdconfig.fkeytable:
+            m={}
+            for i in ("shift", "alt", "ctrl", "ext"):
+                if td["mfuncs"][i]=="":
+                    m[i]="0"
+                elif len(td["mkeys"][i])==1:
+                    m[i]="'%s'" % td["mkeys"][i]
+                else:
+                    m[i]="KEYCODE_%s" % td["mkeys"][i]
+                    if m[i] not in self.keycode_symbols:
+                        self.keycode_symbols.append(m[i])
 
+            fk = "KEYCODE_%s" % (td["func"] if td["func"]!="" else "0")
+            if fk not in self.keycode_symbols:
+                 self.keycode_symbols.append(fk)
+            self.outfd.write("\t{%s,{%s,%s,%s,%s}},\n" % (
+                fk, m["shift"], m["alt"], m["ctrl"], m["ext"]))
+
+        self.outfd.write("};\n")
+        self.outfd.write("\n")
+
+    def mkey_tables(self):
+        self.outfd.write("uint16_t mkey_table[][2]={\n")
+        for td in self.kbdconfig.mkeytable:
+            mk=td[0].replace("/", "_SLASH")
+            mk="KEYCODE_%s" % mk
+            if mk not in self.keycode_symbols:
+                 self.keycode_symbols.append(mk)
+            mbits=""
+            for bk in td[1:]:
+                if mbits != "" : mbits+=" | "
+                mbits+="(1 << KeyFifo::KINDEX_%s)" % bk.upper()
+            self.outfd.write("\t{%s,%s},\n" % (mk, mbits))
+        self.outfd.write("\t{KEYCODE_0, 0},\n")
+        self.outfd.write("};\n")
+        self.outfd.write("\n")
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
@@ -146,6 +221,8 @@ if __name__ == '__main__':
 
     psource.file_head()
     psource.key_tables()
+    psource.fkey_tables()
+    psource.mkey_tables()
     pheader.keycode_enum(psource.keycode_symbols)
     pheader.data_struct()
 

@@ -99,6 +99,7 @@ class KbdConfig():
         for mk in multikeys:
             v|=1<<self.btgpios[mk]
         self.multikeystable[v]=item1
+        self.mkeytable.append([item1]+multikeys)
         return 0
 
     def readconf(self, conffile: str="config.org") -> int:
@@ -107,6 +108,7 @@ class KbdConfig():
         self.skeytable=[None]*36
         self.fkeytable=[None]*4
         self.multikeystable={}
+        self.mkeytable=[]
         self.btgpios={}
         while True:
             keydef={}

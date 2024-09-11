@@ -7,4 +7,4 @@ all: twskbpc
 	cd ..; ./gen_header.py
 
 twskbpc: $(SOURCES) $(HEADERS) twskbpc.cpp
-	g++ -Wall -DLOGGING_LEVEL=LOGL_DEBUG -I.. -o $@ $(SOURCES) twskbpc.cpp
+	g++ -g -Wall -DLOGGING_LEVEL=LOGL_DEBUG -DPCRUN_MODE -I.. -o $@ $(SOURCES) twskbpc.cpp

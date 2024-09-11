@@ -32,15 +32,22 @@ public:
 		unsigned long tsms;
 	} key_fifo_data_t;
 
+	typedef enum {
+		KEY_RELEASED=-1,
+		KEY_ANY,
+		KEY_PRESSED,
+	} key_event_type_t;
+
 	KeyFifo(void);
+	void clearfifo(void);
 	int ninfifo(int8_t t, bool pressed);
 	int increadp(void);
 	int increadp(key_fifo_data_t *kd);
 	int pushkd(key_fifo_data_t *kd);
-	int delkn(int8_t t, int n);
+	int delkn(int8_t t, int n, key_event_type_t evtype);
 	int delkd(key_fifo_data_t *kd);
 	key_fifo_data_t *peekd(int8_t t, int n, unsigned long ctsms,
-			       int gapms, int evtype);
+			       int gapms, key_event_type_t evtype);
 	int findkd(int8_t t, key_indexmap_t ki, bool pressed);
 
 private:

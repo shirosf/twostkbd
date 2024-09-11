@@ -19,6 +19,11 @@
 
 KeyFifo::KeyFifo(void)
 {
+	clearfifo();
+}
+
+void KeyFifo::clearfifo(void)
+{
 	headp=-1;
 	btmp=-1;
 	readp=-1;
@@ -102,7 +107,7 @@ int KeyFifo::pushkd(key_fifo_data_t *kd)
 	return 0;
 }
 
-int KeyFifo::delkn(int8_t t, int n)
+int KeyFifo::delkn(int8_t t, int n, key_event_type_t evtype)
 {
 	int8_t *sp;
 	int8_t np, nep, pp1, pp2;
@@ -120,7 +125,18 @@ int KeyFifo::delkn(int8_t t, int n)
 		np=fqds[np].next;
 		if(count>=0){
 			if(count==n){break;}
-			count++;
+			switch(evtype){
+			case KEY_RELEASED:
+				if(fqds[pp1].kd.pressed){count++;}
+				break;
+			case KEY_PRESSED:
+				if(!fqds[pp1].kd.pressed){count++;}
+				break;
+			case KEY_ANY:
+				count++;
+				break;
+			}
+
 		}
 	}
 	if(count!=n){return -1;}
@@ -152,8 +168,8 @@ int KeyFifo::delkd(key_fifo_data_t *kd)
 	int8_t hn=ninfifo('h', false);
 	while(np!=-1){
 		if((fqds[np].kd.ki==kd->ki) && (fqds[np].kd.pressed==kd->pressed)){
-			if(n<hn){return delkn('h', n);}
-			return delkn('r', n-hn);
+			if(n<hn){return delkn('h', n, KEY_ANY);}
+			return delkn('r', n-hn, KEY_ANY);
 		}
 		n++;
 		np=fqds[np].next;
@@ -162,7 +178,7 @@ int KeyFifo::delkd(key_fifo_data_t *kd)
 }
 
 KeyFifo::key_fifo_data_t *KeyFifo::peekd(int8_t t, int n, unsigned long ctsms,
-					 int gapms, int evtype)
+					 int gapms, key_event_type_t evtype)
 {
 	fq_data_t *fqd;
 	int8_t *sp;
@@ -180,9 +196,9 @@ KeyFifo::key_fifo_data_t *KeyFifo::peekd(int8_t t, int n, unsigned long ctsms,
 		return NULL;
 	}
 	fqd=&fqds[*sp];
-	if(evtype==1){
+	if(evtype==KEY_PRESSED){
 		count=fqd->kd.pressed?0:-1;
-	}else if(evtype==-1){
+	}else if(evtype==KEY_RELEASED){
 		count=fqd->kd.pressed?-1:0;
 	}
 	i=0;

@@ -12,10 +12,13 @@ CLI:=arduino-cli
 LIBDIR:=$(HOME)/Arduino/libraries
 ADEV:=/dev/ttyACM0
 BDIR:=$(THISDIR)/build
-SOURCES:=fifo_queue.cpp twskb.cpp
+SOURCES:=fifo_queue.cpp twskb.cpp kbdconfig.cpp
 HEADERS:=$(patsubst %.cpp,%.hpp,$(SOURCES))
 
 all: $(BDIR)/$(SKETCH).ino.elf
+
+kbdconfig.cpp: gen_header.py
+	./gen_header.py
 
 $(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino $(SOURCES) $(HEADERS)
 	$(CLI) compile --fqbn $(FBQN) --build-path $(BDIR) $(THISDIR)

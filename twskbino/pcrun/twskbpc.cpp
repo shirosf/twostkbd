@@ -8,6 +8,7 @@
 
 static bool app_stop;
 static int num_read;
+static bool rgbled[3];
 
 struct kbdio_data {
 	bool prev_state[13];
@@ -37,32 +38,59 @@ void KbdInOut::set_rgb_led(rgb_color_index_t ci)
 {
 	switch(ci){
 	case RGB_COLOR_BLACK:
-		LOG_PRINT(LOGL_DEBUGV, "BLACK\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "BLACK");
+		rgbled[0]=false;rgbled[1]=false;rgbled[2]=false;
+		break;
 	case RGB_COLOR_RED:
-		LOG_PRINT(LOGL_DEBUGV, "RED\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "RED");
+		rgbled[0]=true;rgbled[1]=false;rgbled[2]=false;
+		break;
 	case RGB_COLOR_GREEN:
-		LOG_PRINT(LOGL_DEBUGV, "GREEN\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "GREEN");
+		rgbled[0]=false;rgbled[1]=true;rgbled[2]=false;
+		break;
 	case RGB_COLOR_BLUE:
-		LOG_PRINT(LOGL_DEBUGV, "BLUE\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "BLUE");
+		rgbled[0]=false;rgbled[1]=false;rgbled[2]=true;
+		break;
 	case RGB_COLOR_YELLOW:
-		LOG_PRINT(LOGL_DEBUGV, "YELLOW\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "YELLOW");
+		rgbled[0]=true;rgbled[1]=true;rgbled[2]=false;
+		break;
 	case RGB_COLOR_CYAN:
-		LOG_PRINT(LOGL_DEBUGV, "CYAN\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "CYAN");
+		rgbled[0]=false;rgbled[1]=true;rgbled[2]=true;
+		break;
 	case RGB_COLOR_MAGENTA:
-		LOG_PRINT(LOGL_DEBUGV, "MAGENTA\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "MAGENTA");
+		rgbled[0]=true;rgbled[1]=false;rgbled[2]=true;
+		break;
 	case RGB_COLOR_WHITE:
-		LOG_PRINT(LOGL_DEBUGV, "WHITE\n");
-		return;
+		LOG_PRINT(LOGL_DEBUGV, "WHITE");
+		rgbled[0]=true;rgbled[1]=true;rgbled[2]=true;
+		break;
 	}
-
+	LOG_PRINT(LOGL_DEBUGV, " %d,%d,%d\n", rgbled[0],rgbled[1],rgbled[2]);
 }
+
+void KbdInOut::set_bit_led(rgb_color_index_t ci, bool ledon)
+{
+	switch(ci){
+	case RGB_COLOR_RED:
+		rgbled[0]=ledon;
+		break;
+	case RGB_COLOR_GREEN:
+		rgbled[1]=ledon;
+		break;
+	case RGB_COLOR_BLUE:
+		rgbled[2]=ledon;
+		break;
+	default:
+		break;
+	}
+	LOG_PRINT(LOGL_DEBUG, "RGBLED %d,%d,%d\n", rgbled[0],rgbled[1],rgbled[2]);
+}
+
 
 bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 {
@@ -76,10 +104,10 @@ bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 	  g: KINDEX_F1,
 	  h: KINDEX_F2,
 	  i: KINDEX_F3,
-	  j: KINDEX_ALT,
-	  k: KINDEX_CTRL,
-	  l: KINDEX_SHIFT,
-	  m: KINDEX_EXT,
+	  j: KINDEX_ALT,    //9
+	  k: KINDEX_CTRL,   //10
+	  l: KINDEX_SHIFT,  //11
+	  m: KINDEX_EXT,    //12
 	*/
 	char cb;
 	int res;
@@ -97,16 +125,16 @@ bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 	return true;
 }
 
-void KbdInOut::key_press(char x)
+void KbdInOut::key_press(uint8_t x)
 {
-	if(x>=' '){
+	if(x>=' ' && x<='~'){
 		printf("%c\n", x);
 	}else{
 		printf("0x%02X\n", x);
 	}
 }
 
-void KbdInOut::key_release(char x)
+void KbdInOut::key_release(uint8_t x)
 {
 }
 

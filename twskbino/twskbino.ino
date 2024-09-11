@@ -1,11 +1,3 @@
-#include "twskbino.h"
-#include <soc/gpio_reg.h>
-#include "twskb.hpp"
-
-#define LED_RED 46
-#define LED_GREEN 0
-#define LED_BLUE 45
-
 #ifndef ARDUINO_USB_MODE
 #error This ESP32 SoC has no Native USB interface
 #elif ARDUINO_USB_MODE == 1
@@ -16,6 +8,12 @@ void loop() {}
 
 #include "USB.h"
 #include "USBHIDKeyboard.h"
+#include <soc/gpio_reg.h>
+#include "twskb.hpp"
+
+#define LED_RED 46
+#define LED_GREEN 0
+#define LED_BLUE 45
 
 USBHIDKeyboard Keyboard;
 
@@ -108,6 +106,24 @@ void KbdInOut::set_rgb_led(rgb_color_index_t ci)
 	}
 }
 
+void KbdInOut::set_bit_led(rgb_color_index_t ci, bool ledon)
+{
+	uint8_t val=ledon?LOW:HIGH;
+	switch(ci){
+	case RGB_COLOR_RED:
+		digitalWrite(LED_RED, val);
+		return;
+	case RGB_COLOR_GREEN:
+		digitalWrite(LED_GREEN, val);
+		return;
+	case RGB_COLOR_BLUE:
+		digitalWrite(LED_BLUE, val);
+		return;
+	default:
+		return;
+	}
+}
+
 
 bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 {
@@ -133,13 +149,15 @@ bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 	return false;
 }
 
-void KbdInOut::key_press(char x)
+void KbdInOut::key_press(uint8_t x)
 {
+	if(x==KEYCODE_0){return;}
 	Keyboard.press(x);
 }
 
-void KbdInOut::key_release(char x)
+void KbdInOut::key_release(uint8_t x)
 {
+	if(x==KEYCODE_0){return;}
 	Keyboard.release(x);
 }
 
