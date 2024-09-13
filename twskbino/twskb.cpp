@@ -134,7 +134,7 @@ int Twskbd::proc_reg(KeyFifo::key_indexmap_t ki0, KeyFifo::key_indexmap_t ki1)
 {
 	int i;
 	uint8_t d=0;
-	LOG_PRINT(LOGL_DEBUGV, "%s:ki0=%d, ki1=%d\n", __func__, ki0, ki1);
+	LOG_PRINT(LOGL_DEBUG, "%s:ki0=%d, ki1=%d\n", __func__, ki0, ki1);
 	if(ki0>KeyFifo::KINDEX_K5 || ki1>KeyFifo::KINDEX_K5){return 0;}
 	for(i=0;i<MODKEY_END;i++){
 		if(modkey_state[i] || modkey_locked[i]){
@@ -205,7 +205,7 @@ unsigned int Twskbd::multikey_bits(KeyFifo::key_fifo_data_t *kds[], int n,
 	for(i=0;i<n;i++){
 		mb|=(1<<kds[i]->ki);
 	}
-	LOG_PRINT(LOGL_DEBUG, "%s:n=%d, mb=0x%X\n", __func__, n, mb);
+	LOG_PRINT(LOGL_DEBUGV, "%s:n=%d, mb=0x%X\n", __func__, n, mb);
 	for(i=0;;i++){
 		if(mkey_table[i][0]==KEYCODE_0){break;}
 		if(mkey_table[i][1]==mb){

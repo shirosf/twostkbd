@@ -152,13 +152,29 @@ bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 void KbdInOut::key_press(uint8_t x)
 {
 	if(x==KEYCODE_0){return;}
-	Keyboard.press(x);
+	if(x==KEYCODE_LEFT_CTRL){
+		Keyboard.pressRaw(HID_KEY_CONTROL_LEFT);
+	}else if(x==KEYCODE_LEFT_SHIFT){
+		Keyboard.pressRaw(HID_KEY_SHIFT_LEFT);
+	}else if(x==KEYCODE_LEFT_ALT){
+		Keyboard.pressRaw(HID_KEY_ALT_LEFT);
+	}else{
+		Keyboard.press(x);
+	}
 }
 
 void KbdInOut::key_release(uint8_t x)
 {
 	if(x==KEYCODE_0){return;}
-	Keyboard.release(x);
+	if(x==KEYCODE_LEFT_CTRL){
+		Keyboard.releaseRaw(HID_KEY_CONTROL_LEFT);
+	}else if(x==KEYCODE_LEFT_SHIFT){
+		Keyboard.releaseRaw(HID_KEY_SHIFT_LEFT);
+	}else if(x==KEYCODE_LEFT_ALT){
+		Keyboard.releaseRaw(HID_KEY_ALT_LEFT);
+	}else{
+		Keyboard.release(x);
+	}
 }
 
 void KbdInOut::key_releaseAll(void)

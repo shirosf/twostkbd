@@ -160,7 +160,7 @@ class PrintSource():
                         self.keycode_symbols.append(m[i])
 
             self.outfd.write("\t{'%s',{%s,%s,%s,%s}},\n" % (
-                td["key"], m["shift"], m["alt"], m["ctrl"], m["ext"]))
+                td["key"], m["alt"], m["ctrl"], m["shift"], m["ext"]))
         self.outfd.write("};\n")
         self.outfd.write("\n")
 
