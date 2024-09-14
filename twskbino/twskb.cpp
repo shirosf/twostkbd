@@ -373,6 +373,8 @@ int Twskbd::on_released(KeyFifo::key_fifo_data_t *kd)
 	if(inseq){
 		if(--inseq==0){
 			clean_locked_status();
+		}else{
+			kbdio.key_releaseAll();
 		}
 	}else if(inproc){
 		kbdio.key_release(inproc);
