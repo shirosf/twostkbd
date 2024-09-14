@@ -1,9 +1,8 @@
 # to get arduino-cli
 # https://arduino.github.io/arduino-cli/latest/getting-started/
 #
-# /etc/udev/rules.d/99-usb-serial.rules, the next line makes the symlink
-# SUBSYSTEM=="tty" ATTRS{manufacturer}=="Arduino*" SYMLINK+="arduino"
-#
+# to use esp32-s3 boards, the libraries are the next
+# https://github.com/espressif/arduino-esp32
 
 FBQN:=espressif:esp32:adafruit_feather_esp32s3
 THISDIR=$(shell pwd)

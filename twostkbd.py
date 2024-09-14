@@ -34,12 +34,14 @@ class KbdConfig():
     def get_keygpio_table(self, items):
         if len(items)<5: return 0
         try:
-            kname=items[3].strip()
+            kname=items[1].strip()
+            if kname=="kname": return 0
             gpn=int(items[2])
             if gpn<0 or gpn>27: raise ValueError
             self.btgpios[kname]=gpn
+            self.argpios[kname]=items[3].strip()
         except ValueError:
-            logger.error("gpio msut be a number in 0 to 27")
+            logger.error("gpio msut be a number in 0 to 27, %s" % str(items))
             return -1
         return 0
 
@@ -110,6 +112,7 @@ class KbdConfig():
         self.multikeystable={}
         self.mkeytable=[]
         self.btgpios={}
+        self.argpios={}
         while True:
             keydef={}
             line=inf.readline()

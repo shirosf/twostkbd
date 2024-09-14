@@ -1,6 +1,6 @@
 * Two-stroke single hand keyboard
 ** Introduction
-This a following project to [[https://github.com/shirosf/binarykbd][Binary5 keyboard]]
+This is a following project to [[https://github.com/shirosf/binarykbd][Binary5 keyboard]]
 The basic idea of this keyboard is as follows:
 + hit one of 6 keys twice: 36 codes
 [[./photos/twostkbd_finger_maps1.png]]
@@ -25,7 +25,34 @@ The circuits are mostly simple connections between GPIOs and switches.
 #+CAPTION: 14 keys and Raspberry Pi Zero
 [[./photos/kbd_photo1.jpg]]
 
-** Software
+<2024-09-13 Fri>
+Supported "Arduino Nano ESP32" to attach on PiZero connector.
+#+ATTR_LATEX: :width 200px
+#+ATTR_HTML: :width 200px
+#+CAPTION: 13 keys and Arduin Nano ESP32
+[[./photos/kbd_arduino1.jpg]]
+It would be better to have both PiZero connector and Arduino Nano
+connector on the PCB.
+I would update the PCB design at the time of the next PCB order.
+Arduino GBIO connections are defined in "key-gpio table" in "config.org"
+
+** Arduino Software
+Arduino project directory is "twskbino".
+Go to the directory, then edit "Makefile" there to adjust to your hardware.
+My Arduino board was an unofficial "esp32-s3" type board; to find out
+"FBQN", I chose a looks-close one.
+I believe that as long as it is "esp32-s3" type board "FBQN" should be okay.
+
+To build and install from that Makefile, you need to install "arduino-cli"
+and "esp32-s3" library.
+Once they are ready, "make install" does all the jobs.
+
+People who use IDE need a different way.
+
+The way of configuration is the same as the PiZero Software.
+Everything is defined in "config.org".
+
+** PiZero Software
 *** Installation
 Copy following 3 files into some directory of Pi Zero.
 + twostkbd.py, create_device.sh, config.org
@@ -87,6 +114,24 @@ Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-09-14 Sat>
++ Released the Arduino ESP32-S3 software.
+PiZero runs a heavy Linux kernel and takes a long time to boot up.
+There must be a room to improve by optimization, but I thought it
+wouldn't come to my expecting level.
+With Arduino HW, connecting a usb cable, it becomes ready to use in a second.
+Arduino supports a very convenient USBHIDKeyboard library; thanks to it
+developing the software was easy.
+
++ Created a new board which uses "[[http://www.kailh.com/en/Products/Ks/CS/][Kailh Choc Switch]], Red".
+[[./photos/choc_sw_pink_red.jpg]]
+I've been using "Pink" with 20g operation force.
+It was the lightest operation force in what I could find in the market.
+Actuary it is a little too light, and I often hit wrong keys inadvertently.
+"Red" with 50g is better for that point.
+Pursuing faster typing, however, "Pink" would be better.
+I'm still wondering which I should use.
+
 *** <2024-08-03 Sat>
 Moved TAB to "multikeys table". "k1,k2,k3" is easier than "shift-f2".
 "fkey table" modifier functions are all empty, modifier keys are applied on the all.

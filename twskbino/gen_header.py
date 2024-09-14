@@ -28,9 +28,9 @@ logger=logging.getLogger("gen_header")
 logger.setLevel(logging.DEBUG)
 
 class ArduinoKbdConfig(KbdConfig):
-    KeyGpio={"k0":5, "k1":6, "k2":7, "k3":8, "k4":9, "k5":10,
-             "f1":17, "f2":18, "f3":21,
-             "alt":1, "ctrl":2, "shift":3, "ext":4}
+    KeyGpio=["k0", "k1", "k2", "k3", "k4", "k5",
+             "f1", "f2", "f3",
+             "alt", "ctrl", "shift", "ext"]
     KeyCode={"BS":"BACKSPACE", "SP":"SPACE", "RET":"RETURN",
              "LEFT":"LEFT_ARROW",
              "RIGHT":"RIGHT_ARROW",
@@ -68,8 +68,8 @@ class PrintHeader():
     def gpio_map(self):
         self.outfd.write("\n")
         self.outfd.write("#define KEY_GPIO_LIST {")
-        for gn in ArduinoKbdConfig.KeyGpio.values():
-            self.outfd.write("%d," % gn)
+        for gn in ArduinoKbdConfig.KeyGpio:
+            self.outfd.write("%s," % self.kbdconfig.argpios[gn])
         self.outfd.write("}\n")
         self.outfd.write("\n")
         self.outfd.write('''
