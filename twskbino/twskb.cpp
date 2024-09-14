@@ -283,6 +283,10 @@ int Twskbd::on_pressed(KeyFifo::key_fifo_data_t *kd, bool onrel)
 		if(proc_hmkb(kds, 2)){return 0;}
 		if(onrel || inproc || (gapms>KEY_PROC_GAP_MS) ||
 		   (multikey_bits(kds, 2, 0)==0)){
+			if(proc_mod(kds[0]->ki)==0){
+				kfifo.increadp(kds[0]);
+				return 0;
+			}
 			inproc=proc_reg(kds[0]->ki, kds[1]->ki);
 			kfifo.delkd(kds[0]);
 			if(inproc>0){
@@ -299,6 +303,10 @@ int Twskbd::on_pressed(KeyFifo::key_fifo_data_t *kd, bool onrel)
 	if(ninf==3){
 		mkb=multikey_bits(kds, 3, 0);
 		if(onrel || inproc || (mkb==0)){
+			if(proc_mod(kds[0]->ki)==0){
+				kfifo.increadp(kds[0]);
+				return 0;
+			}
 			if(gapms>KEY_PROC_GAP_MS){
 				inproc=proc_reg(kds[0]->ki, kds[1]->ki);
 				kfifo.delkd(kds[0]);

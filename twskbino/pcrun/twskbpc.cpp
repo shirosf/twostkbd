@@ -95,15 +95,15 @@ void KbdInOut::set_bit_led(rgb_color_index_t ci, bool ledon)
 bool KbdInOut::get_inkey(KeyFifo::key_indexmap_t *ki, bool *pressed)
 {
 	/*
-	  a: KINDEX_K0,
-	  b: KINDEX_K1,
-	  c: KINDEX_K2,
-	  d: KINDEX_K3,
-	  e: KINDEX_K4,
-	  f: KINDEX_K5,
-	  g: KINDEX_F1,
-	  h: KINDEX_F2,
-	  i: KINDEX_F3,
+	  a: KINDEX_K0,     //0
+	  b: KINDEX_K1,     //1
+	  c: KINDEX_K2,     //2
+	  d: KINDEX_K3,     //3
+	  e: KINDEX_K4,     //4
+	  f: KINDEX_K5,     //5
+	  g: KINDEX_F1,     //6
+	  h: KINDEX_F2,     //7
+	  i: KINDEX_F3,     //8
 	  j: KINDEX_ALT,    //9
 	  k: KINDEX_CTRL,   //10
 	  l: KINDEX_SHIFT,  //11
