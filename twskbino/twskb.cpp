@@ -40,7 +40,6 @@ int Twskbd::keyscan_push(unsigned long tsms)
 			res+=1;
 			if(kd.pressed){
 				kbdio.set_bit_led(kbdio.RGB_COLOR_BLUE, true);
-				last_pressedki=kd.ki;
 			}else{
 				kbdio.set_bit_led(kbdio.RGB_COLOR_BLUE, false);
 			}
@@ -74,6 +73,7 @@ int Twskbd::proc_func(KeyFifo::key_indexmap_t ki)
 		d=fkey_table[fi].rk;
 		kbdio.key_press(d);
 	}
+	unlock_modkeys();
 	return d;
 }
 
@@ -109,6 +109,32 @@ uint8_t Twskbd::get_mod_keycode(modkey_enum_t mi)
 	}
 }
 
+void Twskbd::set_modkeys_led(void)
+{
+	int i;
+	bool alloff=true;
+	for(i=0;i<MODKEY_END;i++){
+		alloff&=!modkey_state[i] && !modkey_locked[i];
+	}
+	if(alloff){
+		kbdio.set_bit_led(kbdio.RGB_COLOR_GREEN, false);
+	}else{
+		kbdio.set_bit_led(kbdio.RGB_COLOR_GREEN, true);
+	}
+}
+
+void Twskbd::unlock_modkeys(void)
+{
+	int i;
+	for(i=0;i<MODKEY_END;i++){
+		if(!modkey_state[i]){
+			kbdio.key_release(get_mod_keycode((modkey_enum_t)i));
+		}
+		modkey_locked[i]=false;
+	}
+	set_modkeys_led();
+}
+
 int Twskbd::proc_mod(KeyFifo::key_indexmap_t ki)
 {
 	int mi;
@@ -118,13 +144,13 @@ int Twskbd::proc_mod(KeyFifo::key_indexmap_t ki)
 		LOG_PRINT(LOGL_DEBUG, "%s:unlock ki=%d\n", __func__, ki);
 		modkey_locked[mi]=false;
 		modkey_state[mi]=false;
-		last_pressedki=KeyFifo::KINDEX_K0;
 		kbdio.key_release(get_mod_keycode((modkey_enum_t)mi));
-		kbdio.set_bit_led(kbdio.RGB_COLOR_GREEN, false);
+		set_modkeys_led();
 		return 0;
 	}
 	LOG_PRINT(LOGL_DEBUG, "%s:state on ki=%d\n", __func__, ki);
 	modkey_state[mi]=true;
+	modkey_locked[mi]=true;
 	kbdio.key_press(get_mod_keycode((modkey_enum_t)mi));
 	kbdio.set_bit_led(kbdio.RGB_COLOR_GREEN, true);
 	return 0;
@@ -148,6 +174,7 @@ int Twskbd::proc_reg(KeyFifo::key_indexmap_t ki0, KeyFifo::key_indexmap_t ki1)
 		d=skey_table[ki0*6+ki1].rk;
 		kbdio.key_press(d);
 	}
+	unlock_modkeys();
 	return d;
 }
 
@@ -186,6 +213,7 @@ int Twskbd::proc_multi(unsigned int mkb)
 		break;
 	default:
 		kbdio.key_press(mkb);
+		unlock_modkeys();
 		return mkb;
 	}
 	for(i=0;;i++){
@@ -194,6 +222,7 @@ int Twskbd::proc_multi(unsigned int mkb)
 		kbdio.key_press(k);
 	}
 	inseq=i;
+	unlock_modkeys();
 	return k;
 }
 
@@ -229,6 +258,7 @@ void Twskbd::clean_locked_status(void)
 	}
 	kfifo.clearfifo();
 	kbdio.key_releaseAll();
+	set_modkeys_led();
 }
 
 // check processing multikeys in 'h' area of the queue.
@@ -349,24 +379,11 @@ int Twskbd::on_released(KeyFifo::key_fifo_data_t *kd)
 	mi=get_mod_enum(kd->ki);
 	if(mi>=0){
 		modkey_state[mi]=false;
-		if(kd->ki==last_pressedki){
-			LOG_PRINT(LOGL_DEBUG, "%s:mod lock ki=%d\n", __func__, kd->ki);
-			modkey_locked[mi]=true;
-		}else{
-			LOG_PRINT(LOGL_DEBUG, "%s:mod state off ki=%d\n", __func__, kd->ki);
+		LOG_PRINT(LOGL_DEBUG, "%s:mod state off ki=%d\n", __func__, kd->ki);
+		if(!modkey_locked[mi]){
 			kbdio.key_release(get_mod_keycode((modkey_enum_t)mi));
-			kbdio.set_bit_led(kbdio.RGB_COLOR_GREEN, false);
+			set_modkeys_led();
 		}
-	}else{
-		// clean mod_lock
-		for(mi=MODKEY_A;mi<MODKEY_END;mi++){
-			if(modkey_locked[mi]){
-				LOG_PRINT(LOGL_DEBUG, "%s:mod unlock mi=%d\n", __func__, mi);
-				modkey_locked[mi]=false;
-				kbdio.key_release(get_mod_keycode((modkey_enum_t)mi));
-			}
-		}
-		kbdio.set_bit_led(kbdio.RGB_COLOR_GREEN, false);
 	}
 	kfifo.delkn('h', n, KeyFifo::KEY_ANY);
 	kfifo.delkd(kd);
@@ -389,17 +406,26 @@ void Twskbd::main_loop(unsigned long tsms)
 {
 	int res=0;
 	bool onrel=false;
-	KeyFifo::key_fifo_data_t *kdr, *kdp;
+	KeyFifo::key_fifo_data_t *kd, *pkd=NULL;
 	if(keyscan_push(tsms)>0){return;}
-	kdr=kfifo.peekd('r', 0, tsms, KEY_PROC_GAP_MS, KeyFifo::KEY_RELEASED);
-	if(kdr!=NULL){
-		res|=on_released(kdr);
-		onrel=true;
-	}
-	kdp=kfifo.peekd('r', 0, tsms, KEY_PROC_GAP_MS, KeyFifo::KEY_PRESSED);
-	if(kdp!=NULL){
-		res|=on_pressed(kdp, onrel);
-		if(kdr!=NULL){res|=on_released(kdr);}
+	while(true){
+		kd=kfifo.peekd('r', 0, tsms, KEY_PROC_GAP_MS, KeyFifo::KEY_ANY);
+		if(kd==NULL){break;}
+		if(kd==pkd){
+			// when the first "pressed" event is pending in the queue,
+			// "release" event must be checked in deeper places in the queue
+			kd=kfifo.peekd('r', 0, tsms, KEY_PROC_GAP_MS, KeyFifo::KEY_RELEASED);
+			if(kd==NULL){break;}
+			res|=on_released(kd);
+			continue;
+		}
+		if(kd->pressed){
+			res|=on_pressed(kd, onrel);
+		}else{
+			res|=on_released(kd);
+			onrel=true;
+		}
+		pkd=kd;
 	}
 	if(res!=0){
 		kbdio.set_rgb_led(kbdio.RGB_COLOR_RED);

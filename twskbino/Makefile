@@ -16,7 +16,7 @@ HEADERS:=$(patsubst %.cpp,%.hpp,$(SOURCES))
 
 all: $(BDIR)/$(SKETCH).ino.elf
 
-kbdconfig.cpp: gen_header.py
+kbdconfig.cpp: gen_header.py ../config.org
 	./gen_header.py
 
 $(BDIR)/$(SKETCH).ino.elf: $(SKETCH).ino $(SOURCES) $(HEADERS)

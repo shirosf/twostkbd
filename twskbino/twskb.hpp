@@ -61,7 +61,6 @@ private:
 	int inseq=0;
 	bool modkey_state[MODKEY_END]={false};
 	bool modkey_locked[MODKEY_END]={false};
-	KeyFifo::key_indexmap_t last_pressedki;
 
 	int keyscan_push(unsigned long tsms);
 	int on_pressed(KeyFifo::key_fifo_data_t *kd, bool onrel);
@@ -76,6 +75,8 @@ private:
 	int get_mod_enum(KeyFifo::key_indexmap_t ki);
 	uint8_t get_mod_keycode(modkey_enum_t mi);
 	int proc_hmkb(KeyFifo::key_fifo_data_t *kds[], int n);
+	void set_modkeys_led(void);
+	void unlock_modkeys(void);
 
 public:
 	Twskbd(void);
