@@ -52,6 +52,11 @@ People who use IDE need a different way.
 The way of configuration is the same as the PiZero Software.
 Everything is defined in "config.org".
 
+Arduino Nano has a RGB-LED on the board.
+It starts with non-lighting status(R, G, B are all turned off).
+'B' is ON when a key is pressed.
+'G' is ON when any modifier key is pressed or locked.
+
 ** PiZero Software
 *** Installation
 Copy following 3 files into some directory of Pi Zero.
@@ -71,7 +76,7 @@ Once the USB HID device is created, 'twostkbd.py' can run, and it feeds
 keyboard events into the device.
 
 *** systemd service
-To meke the program start automatically at boot time, install "twostkbd.service"
+To make the program start automatically at boot time, install "twostkbd.service"
 and enable it as follows:
 when you copy "twostkbd.py, create_device.sh, config.org" to the target Pi Zero,
 you also copy "Makefile, twostkbd.service". Then go to the directory, and run the
@@ -118,8 +123,8 @@ all files in this project are released under GNU General Public License Version 
 + Released the Arduino ESP32-S3 software.
 PiZero runs a heavy Linux kernel and takes a long time to boot up.
 There must be a room to improve by optimization, but I thought it
-wouldn't come to my expecting level.
-With Arduino HW, connecting a usb cable, it becomes ready to use in a second.
+wouldn't come to my expected level.
+With Arduino HW, connecting a USB cable, it becomes ready to use in a second.
 Arduino supports a very convenient USBHIDKeyboard library; thanks to it
 developing the software was easy.
 
