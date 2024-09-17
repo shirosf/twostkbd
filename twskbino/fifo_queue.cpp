@@ -43,7 +43,7 @@ int8_t KeyFifo::getbuf(void)
 	return -1;
 }
 
-int KeyFifo::ninfifo(int8_t t, bool pressed)
+int KeyFifo::ninfifo(int8_t t, key_event_type_t evtype)
 {
 	int8_t *sp;
 	int8_t nep;
@@ -56,11 +56,18 @@ int KeyFifo::ninfifo(int8_t t, bool pressed)
 	fqd=&fqds[*sp];
 	count=0;
 	for(i=0;i<FIFO_MAX_DEPTH;i++){
-		if(fqd->kd.pressed){count++;}
-		if(fqd->next==nep){
-			if(pressed){return count;}
-			return i+1;
+		switch(evtype){
+		case KEY_PRESSED:
+			if(fqd->kd.pressed){count++;}
+			break;
+		case KEY_RELEASED:
+			if(!fqd->kd.pressed){count++;}
+			break;
+		case KEY_ANY:
+			count++;
+			break;
 		}
+		if(fqd->next==nep){return count;}
 		if(fqd->next==-1){
 			LOG_PRINT(LOGL_ERROR, "%s:%c,corrupted, hp=%d, rp=%d, bp=%d, nep=%d\n",
 				  __func__, t, headp, readp, btmp, nep);
@@ -136,7 +143,6 @@ int KeyFifo::delkn(int8_t t, int n, key_event_type_t evtype)
 				count++;
 				break;
 			}
-
 		}
 	}
 	if(count!=n){return -1;}
@@ -165,7 +171,7 @@ int KeyFifo::delkd(key_fifo_data_t *kd)
 {
 	int8_t n=0;
 	int8_t np=headp;
-	int8_t hn=ninfifo('h', false);
+	int8_t hn=ninfifo('h', KeyFifo::KEY_ANY);
 	while(np!=-1){
 		if((fqds[np].kd.ki==kd->ki) && (fqds[np].kd.pressed==kd->pressed)){
 			if(n<hn){return delkn('h', n, KEY_ANY);}

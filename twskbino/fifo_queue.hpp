@@ -40,7 +40,7 @@ public:
 
 	KeyFifo(void);
 	void clearfifo(void);
-	int ninfifo(int8_t t, bool pressed);
+	int ninfifo(int8_t t, key_event_type_t evtype);
 	int increadp(void);
 	int increadp(key_fifo_data_t *kd);
 	int pushkd(key_fifo_data_t *kd);

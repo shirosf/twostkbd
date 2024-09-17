@@ -267,7 +267,7 @@ int Twskbd::proc_hmkb(KeyFifo::key_fifo_data_t *kds[], int n)
 {
 	unsigned int mkb, hmkb=0;
 	int i;
-	int hn=kfifo.ninfifo('h', true);
+	int hn=kfifo.ninfifo('h', KeyFifo::KEY_PRESSED);
 	KeyFifo::key_fifo_data_t *kd;
 	for(i=0;i<hn;i++){
 		kd=kfifo.peekd('h', i, 0, 0, KeyFifo::KEY_PRESSED);
@@ -286,7 +286,7 @@ int Twskbd::on_pressed(KeyFifo::key_fifo_data_t *kd, bool onrel)
 	int gapms;
 	unsigned int mkb;
 	KeyFifo::key_fifo_data_t *kds[4];
-	int ninf=kfifo.ninfifo('r', true);
+	int ninf=kfifo.ninfifo('r', KeyFifo::KEY_PRESSED);
 	kds[0]=kd;
 	if(ninf==0){return 0;} // never happen
 	if(ninf==1){
@@ -398,7 +398,8 @@ int Twskbd::on_released(KeyFifo::key_fifo_data_t *kd)
 		inproc=0;
 	}
 	LOG_PRINT(LOGL_DEBUG, "%s:head=%d, read=%d\n", __func__,
-		  kfifo.ninfifo('h', false),  kfifo.ninfifo('r', false));
+		  kfifo.ninfifo('h', KeyFifo::KEY_ANY),
+		  kfifo.ninfifo('r', KeyFifo::KEY_ANY));
 	return 0;
 }
 
@@ -419,11 +420,13 @@ void Twskbd::main_loop(unsigned long tsms)
 			res|=on_released(kd);
 			continue;
 		}
+		// when release events in the queue, the process shouldn't be on hold.
+		// "onrel" is set for that purpose.
+		onrel=kfifo.ninfifo('r', KeyFifo::KEY_RELEASED)>0;
 		if(kd->pressed){
 			res|=on_pressed(kd, onrel);
 		}else{
 			res|=on_released(kd);
-			onrel=true;
 		}
 		pkd=kd;
 	}
