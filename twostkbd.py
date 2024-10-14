@@ -255,6 +255,7 @@ class KbdDevice():
             'CTLG':(ord('g')-ord('a')+0x04,self.modifiers['LeftCtr'],0),
             'CTL/':(0x38,self.modifiers['LeftCtr'],0),
             'ALTX':(ord('x')-ord('a')+0x04,self.modifiers['LeftAlt'],0),
+            'ALTW':(ord('w')-ord('a')+0x04,self.modifiers['LeftAlt'],0),
             '!':(0x1e,self.modifiers['LeftShift'],0),
             '@':(0x1f,self.modifiers['LeftShift'],0),
             '#':(0x20,self.modifiers['LeftShift'],0),

@@ -204,9 +204,16 @@ int Twskbd::proc_multi(unsigned int mkb)
 	case KEYCODE_CTLX:
 		seqkeys[1]='x';
 		break;
+	case KEYCODE_CTLY:
+		seqkeys[1]='y';
+		break;
 	case KEYCODE_ALTX:
 		seqkeys[0]=KEYCODE_LEFT_ALT;
 		seqkeys[1]='x';
+		break;
+	case KEYCODE_ALTW:
+		seqkeys[0]=KEYCODE_LEFT_ALT;
+		seqkeys[1]='w';
 		break;
 	case KEYCODE_CTL_SLASH:
 		seqkeys[1]='/';

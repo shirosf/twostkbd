@@ -40,7 +40,7 @@ class ArduinoKbdConfig(KbdConfig):
              "PDOWN":"PAGE_DOWN",
              }
     KeySeq={"CHOME","CEND","CLEFT","CRIGHT","CTLG",
-             "CTLC","CTLX","ALTX","CTL_SLASH",
+             "CTLC","CTLX","CTLY","ALTW","ALTX","CTL_SLASH",
             }
 
 

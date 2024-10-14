@@ -83,8 +83,8 @@
 | DOWN   | k0,k1,k5    |
 | PUP    | k1,k2,f3    |
 | PDOWN  | k1,k2,k5    |
-| HOME   | f1,f2,f3    |
-| END    | f1,f2,k5    |
+| HOME   | k0,k1,f2    |
+| END    | k0,k1,k4    |
 | CHOME  | k0,k2,f3    |
 | CEND   | k0,k2,k5    |
 | CLEFT  | k0,f2,f3    |
@@ -95,4 +95,6 @@
 | CTLX   | k0,f2,k3    |
 | ALTX   | f1,f2,k3    |
 | CTL/   | k0,k1,k2,f3 |
+| ALTW   | f1,f2,f3    |
+| CTLY   | f1,f2,k5    |
 |--------+-------------|
