@@ -119,6 +119,15 @@ Unless otherwise explicitly stated,
 all files in this project are released under GNU General Public License Version 2.
 
 ** Development history
+*** <2024-11-15 Fri>
+With a half year practice, I come to around 25-WPM level.
+And it seems to be saturated and the progress from this point will be very slow.
+For some purposes, this keyboard could be useful.
+But for my use, which is mostly writing program codes, it can't replace
+regular 2-handed keyboards.
+
+I stop this project at this point.
+
 *** <2024-09-14 Sat>
 + Released the Arduino ESP32-S3 software.
 PiZero runs a heavy Linux kernel and takes a long time to boot up.
